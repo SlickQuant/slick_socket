@@ -175,7 +175,7 @@ void TCPServerBase<DrivedT, LoggerT>::server_loop()
         std::vector<int> active_clients;
         for (const auto& [id, client] : clients_)
         {
-            if (clinet.socket >= 0)
+            if (client.socket >= 0)
             {
                 FD_SET(client.socket, &read_fds);
                 if (client.socket > max_fd)
