@@ -4,14 +4,14 @@ target_include_directories(socket INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 # Platform-specific implementations
 if(WIN32)
-    add_library(socket_win32 INTERFACE tcp_server_win32.h tcp_server.h)
+    add_library(socket_win32 INTERFACE tcp_server_win32.h tcp_server_base.h)
     target_include_directories(socket_win32 INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/..)
     target_compile_definitions(socket_win32 INTERFACE _WIN32_WINNT=0x0601)
 endif()
 
 # Unix implementations for Linux/macOS
 if(UNIX)
-    add_library(socket_unix INTERFACE tcp_server_unix.h tcp_server.h)
+    add_library(socket_unix INTERFACE tcp_server_unix.h tcp_server_base.h)
     target_include_directories(socket_unix INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 endif()
 
