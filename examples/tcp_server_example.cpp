@@ -1,65 +1,34 @@
-#include <tcp_server_win32.h>
+#include <tcp_server_base.h>
 #include <iostream>
 #include <string>
-#include <format>
 
-using namespace slick_socket;
-
-class TCPServer : public TCPServerBase, public ITCPServerCallback, public ILogger
+class TCPServer : public slick_socket::TCPServerBase<TCPServer>
 {
 public:
-    using TCPServerBase::TCPServerBase;
-
-    TCPServer(const Config& config)
-        : TCPServerBase(this, config, this)
+    TCPServer(const slick_socket::TCPServerConfig& config)
+        : slick_socket::TCPServerBase<TCPServer>(config)
     {
     }
 
-    // Override event handlers to make them public for testing
-    void onClientConnected(int client_id, const std::string& client_address) override
+    void onClientConnected(int client_id, const std::string& client_address)
     {
-        std::cout << "Client connected: ID=" << client_id << ", Address=" << client_address << std::endl;
+        logger_.logInfo("Client connected: ID={}, Address={}", client_id, client_address);
     }
 
-    void onClientDisconnected(int client_id) override
+    void onClientDisconnected(int client_id)
     {
         std::cout << "Client disconnected: ID=" << client_id << std::endl;
     }
 
-    void onClientData(int client_id, const std::vector<uint8_t>& data) override
+    void onClientData(int client_id, const std::vector<uint8_t>& data)
     {
         std::cout << "Data received from client ID=" << client_id << ", Size=" << data.size() << std::endl;
-    }
-
-    void logTrace(const std::string& format, std::format_args args) override
-    {
-        std::cout << "[TRACE] " << std::vformat(format, args) << std::endl;
-    }
-
-    void logDebug(const std::string& format, std::format_args args) override
-    {
-        std::cout << "[DEBUG] " << std::vformat(format, args) << std::endl;
-    }
-
-    void logInfo(const std::string& format, std::format_args args) override
-    {
-        std::cout << "[INFO] " << std::vformat(format, args) << std::endl;
-    }
-
-    void logWarning(const std::string& format, std::format_args args) override
-    {
-        std::cout << "[WARN] " << std::vformat(format, args) << std::endl;
-    }
-
-    void logError(const std::string& format, std::format_args args) override
-    {
-        std::cout << "[ERROR] " << std::vformat(format, args) << std::endl;
     }
 };
 
 int main()
 {
-    TCPServer::Config config;
+    slick_socket::TCPServerConfig config;
     config.port = 9090; // Set custom port if needed
     config.max_connections = 50; // Set max connections
     config.receive_buffer_size = 8192; // Set receive buffer size

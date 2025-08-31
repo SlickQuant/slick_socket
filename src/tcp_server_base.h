@@ -5,33 +5,32 @@
 #include <vector>
 #include <atomic>
 #include <thread>
-#include <ilogger.h>
+#include <chrono>
+#include <unordered_map>
+#include <string>
+#include "logger.h"
+
+#if defined(_WIN32) || defined(_WIN64)
+#include <winsock2.h>
+#endif
 
 namespace slick_socket
 {
 
-struct ITCPServerCallback
+struct TCPServerConfig
 {
-    virtual ~ITCPServerCallback() = default;
-
-    virtual void onClientConnected(int client_id, const std::string& client_address) = 0;
-    virtual void onClientDisconnected(int client_id) = 0;
-    virtual void onClientData(int client_id, const std::vector<uint8_t>& data) = 0;
+    uint16_t port = 5000;
+    int max_connections = 100;
+    bool reuse_address = true;
+    int receive_buffer_size = 4096;
+    std::chrono::milliseconds connection_timeout{30000};
 };
 
+template<typename DrivedT, typename LoggerT = ConsoleLogger>
 class TCPServerBase
 {
 public:
-    struct Config
-    {
-        uint16_t port = 5000;
-        int max_connections = 100;
-        bool reuse_address = true;
-        int receive_buffer_size = 4096;
-        std::chrono::milliseconds connection_timeout{30000};
-    };
-
-    explicit TCPServerBase(ITCPServerCallback* callback, const Config& config = Config(), ILogger* logger = &NullLogger::instance());
+    explicit TCPServerBase(const TCPServerConfig& config = TCPServerConfig(), LoggerT& logger = ConsoleLogger::instance());
     virtual ~TCPServerBase();
 
     // Delete copy operations
@@ -39,26 +38,73 @@ public:
     TCPServerBase& operator=(const TCPServerBase&) = delete;
 
     // Move operations
-    TCPServerBase(TCPServerBase&& other) noexcept;
-    TCPServerBase& operator=(TCPServerBase&& other) noexcept;
+    TCPServerBase(TCPServerBase&& other) noexcept = default;
+    TCPServerBase& operator=(TCPServerBase&& other) noexcept = default;
 
     // Server control
     bool start();
     void stop();
-    bool is_running() const;
+
+    bool is_running() const noexcept
+    {
+        return running_.load(std::memory_order_relaxed);
+    }
 
 protected:
+    DrivedT& derived() { return static_cast<DrivedT&>(*this); }
+    const DrivedT& derived() const { return static_cast<const DrivedT&>(*this); }
+
+    void server_loop();
+    void accept_new_client();
+    void handle_client_data(int client_id, std::vector<uint8_t>& buffer);
+
     // Send data to client
     bool send_data(int client_id, const std::vector<uint8_t>& data);
-    bool send_data(int client_id, const std::string& data);
+    bool send_data(int client_id, const std::string& data)
+    {
+        std::vector<uint8_t> buffer(data.begin(), data.end());
+        return send_data(client_id, buffer);
+    }
 
     // Connection management
     void disconnect_client(int client_id);
-    size_t get_connected_client_count() const;
+    
+    size_t get_connected_client_count() const noexcept
+    {   
+        return clients_.size();
+    }
 
 protected:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
+
+#if defined(_WIN32) || defined(_WIN64)
+    using SocketT = SOCKET;
+    static constexpr SocketT invalid_socket = INVALID_SOCKET;
+#else
+    using SocketT = int;
+    static constexpr SocketT invalid_socket = -1;
+#endif
+
+    struct ClientInfo
+    {
+        SocketT socket;
+        std::string address;
+    };
+
+    TCPServerConfig config_;
+    LoggerT& logger_;
+    std::atomic_bool running_{false};
+
+    std::thread server_thread_;
+    SocketT server_socket_ = invalid_socket;
+
+    std::unordered_map<int, ClientInfo> clients_;
+    std::atomic<int> next_client_id_{1};
 };
 
-} // namespace exchange_simulator
+} // namespace slick_socket
+
+#if defined(_WIN32) || defined(_WIN64)
+#include "tcp_server_win32.h"
+#else
+#include "tcp_server_unix.h"
+#endif
