@@ -257,7 +257,7 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
     clients_[client_id] = {client_socket, client_address};
 
     // Notify about new client
-    callback_.onClientConnected(client_id, client_address);
+    derived().onClientConnected(client_id, client_address);
 
     logger_.logInfo("Client connected");
 }
@@ -279,7 +279,7 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
         // Process received data
         std::vector<uint8_t> data(buffer.begin(), buffer.begin() + received);
 
-        callback_.onClientData(client_id, data);
+        derived().onClientData(client_id, data);
     }
     else if (received == 0)
     {
@@ -288,7 +288,7 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
         close(socket);
 
         // Notify about client disconnection
-        callback_.onClientDisconnected(client_id);
+        derived().onClientDisconnected(client_id);
 
         clients_.erase(it);
     }
@@ -300,7 +300,7 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
             logger_.logError("Receive error for client");
             close(socket);
 
-            callback_.onClientDisconnected(client_id);
+            derived().onClientDisconnected(client_id);
 
             clients_.erase(it);
         }
