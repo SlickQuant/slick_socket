@@ -2,34 +2,26 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#include "tcp_server_base.h"
+#include "tcp_server.h"
 #include <ws2tcpip.h>
 #include <queue>
 #include <algorithm>
 
 #pragma comment(lib, "ws2_32.lib")
 
-namespace
-{
-    inline void initialize_winsock()
-    {
-        WSADATA wsa_data;
-        int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-        if (result != 0)
-        {
-            throw std::runtime_error("WSAStartup failed: " + std::to_string(result));
-        }
-    }
-}
-
 namespace slick_socket
 {
 
 template<typename DrivedT, typename LoggerT>
-inline TCPServerBase<DrivedT, LoggerT>::TCPServerBase(const TCPServerConfig& config, LoggerT& logger)
-    : config_(config), logger_(logger)
+inline TCPServerBase<DrivedT, LoggerT>::TCPServerBase(std::string name, const TCPServerConfig& config, LoggerT& logger)
+    : name_(std::move(name)), config_(config), logger_(logger)
 {
-    initialize_winsock();
+    WSADATA wsa_data;
+    int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+    if (result != 0)
+    {
+        throw std::runtime_error("WSAStartup failed: " + std::to_string(result));
+    }
 }
 
 template<typename DrivedT, typename LoggerT>
@@ -47,12 +39,20 @@ inline bool TCPServerBase<DrivedT, LoggerT>::start()
         return true;
     }
 
+    logger_.logInfo("Starting {}, lisening on: {}...", name_, config_.port);
     // Create server socket
     server_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (server_socket_ == INVALID_SOCKET)
     {
         logger_.logError("Failed to create server socket");
         return false;
+    }
+
+    // Make server socket non-blocking
+    u_long mode = 1; // non-blocking mode
+    if (ioctlsocket(server_socket_, FIONBIO, &mode) != 0)
+    {
+        logger_.logWarning("Failed to make server socket non-blocking");
     }
 
     // Set socket options
@@ -90,7 +90,7 @@ inline bool TCPServerBase<DrivedT, LoggerT>::start()
     // Start single-threaded server loop
     server_thread_ = std::thread(&TCPServerBase<DrivedT, LoggerT>::server_loop, this);
 
-    logger_.logInfo("TCP server started");
+    logger_.logInfo("{} started", name_);
     return true;
 }
 
@@ -102,6 +102,7 @@ inline void TCPServerBase<DrivedT, LoggerT>::stop()
         return;
     }
 
+    logger_.logInfo("Stopping {}...", name_);
     running_.store(false, std::memory_order_release);
 
     // Close server socket to break select()
@@ -124,7 +125,7 @@ inline void TCPServerBase<DrivedT, LoggerT>::stop()
         server_thread_.join();
     }
 
-    logger_.logInfo("TCP server stopped");
+    logger_.logInfo("{} stopped", name_);
 }
 
 template<typename DrivedT, typename LoggerT>
@@ -136,8 +137,41 @@ inline bool TCPServerBase<DrivedT, LoggerT>::send_data(int client_id, const std:
         return false;
     }
 
+    // Send data to client (non-blocking)
     int sent = send(it->second.socket, (char*)data.data(), (int)data.size(), 0);
-    return sent == (int)data.size();
+    if (sent == SOCKET_ERROR)
+    {
+        int error = WSAGetLastError();
+
+        // Check for non-blocking specific errors
+        if (error == WSAEWOULDBLOCK)
+        {
+            logger_.logWarning("Send would block - socket buffer full for client {}", client_id);
+            return false;
+        }
+
+        logger_.logError("Failed to send data to client {}: error {}", client_id, error);
+
+        // Check if connection is broken
+        if (error == WSAECONNRESET || error == WSAECONNABORTED || error == WSAENOTCONN)
+        {
+            logger_.logInfo("Connection lost during send to client {}, disconnecting", client_id);
+            disconnect_client(client_id);
+        }
+        return false;
+    }
+
+    if (sent != (int)data.size())
+    {
+        size_t data_size = data.size();
+        logger_.logWarning("Partial send to client {}: sent {} bytes out of {}", client_id, sent, data_size);
+        // In non-blocking mode, partial sends can happen when socket buffer is full
+        // For now, we consider this a failure and let caller retry
+        return false;
+    }
+
+    logger_.logTrace("Successfully sent {} bytes to client {}", sent, client_id);
+    return true;
 }
 
 template<typename DrivedT, typename LoggerT>
@@ -228,7 +262,20 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
     SOCKET client_socket = accept(server_socket_, (sockaddr*)&client_addr, &addr_len);
     if (client_socket == INVALID_SOCKET)
     {
-        logger_.logError("Failed to accept client");
+        int error = WSAGetLastError();
+        if (error != WSAEWOULDBLOCK)
+        {
+            logger_.logError("Failed to accept client. error={}", error);
+        }
+        return;
+    }
+
+    // Make client socket non-blocking
+    u_long mode = 1; // non-blocking mode
+    if (ioctlsocket(client_socket, FIONBIO, &mode) != 0)
+    {
+        logger_.logWarning("Failed to make client socket non-blocking");
+        closesocket(client_socket);
         return;
     }
 
@@ -244,8 +291,7 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
 
     // Notify about new client
     derived().onClientConnected(client_id, client_address);
-
-    logger_.logInfo("Client connected");
+    logger_.logInfo("{} client connected: ID={}, Address={}", name_, client_id, client_address);
 }
 
 template<typename DrivedT, typename LoggerT>
@@ -262,20 +308,15 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
 
     if (received > 0)
     {
-        // Process received data
-        std::vector<uint8_t> data(buffer.begin(), buffer.begin() + received);
-
-        derived().onClientData(client_id, data);
+        derived().onClientData(client_id, buffer.data(), received);
     }
     else if (received == 0)
     {
         // Client disconnected
-        logger_.logInfo("Client disconnected");
         closesocket(socket);
-
         // Notify about client disconnection
         derived().onClientDisconnected(client_id);
-
+        logger_.logInfo("{} client disconnected: ID={}", name_, client_id);
         clients_.erase(it);
     }
     else
@@ -286,9 +327,8 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
         {
             logger_.logError("Receive error for client");
             closesocket(socket);
-
             derived().onClientDisconnected(client_id);
-
+            logger_.logInfo("{} client disconnected: ID={}", name_, client_id);
             clients_.erase(it);
         }
     }

@@ -6,3 +6,12 @@ target_include_directories(tcp_server_example
     PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(tcp_client_example
+    tcp_client_example.cpp
+)
+
+target_include_directories(tcp_client_example
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR})

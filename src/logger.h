@@ -19,27 +19,27 @@ struct ConsoleLogger final
     void logTrace(const std::string& format, auto&&... args)
     {
         std::cout << std::format("{:%Y-%m-%d %H:%M:%S} ", std::chrono::system_clock::now()) << "[TRACE] "
-            << std::vformat(format, std::make_format_args(std::forward<decltype(args)>(args)...)) << std::endl;
+            << std::vformat(format, std::make_format_args(args...)) << std::endl;
     }
     void logDebug(const std::string& format, auto&&... args)
     {
         std::cout << std::format("{:%Y-%m-%d %H:%M:%S} ", std::chrono::system_clock::now()) << "[DEBUG] "
-            << std::vformat(format, std::make_format_args(std::forward<decltype(args)>(args)...)) << std::endl;
+            << std::vformat(format, std::make_format_args(args...)) << std::endl;
     }
     void logInfo(const std::string& format, auto&&... args)
     {
         std::cout << std::format("{:%Y-%m-%d %H:%M:%S} ", std::chrono::system_clock::now()) << "[INFO] "
-            << std::vformat(format, std::make_format_args(std::forward<decltype(args)>(args)...)) << std::endl;
+            << std::vformat(format, std::make_format_args(args...)) << std::endl;
     }
     void logWarning(const std::string& format, auto&&... args)
     {
         std::cout << std::format("{:%Y-%m-%d %H:%M:%S} ", std::chrono::system_clock::now()) << "[WARN] "
-            << std::vformat(format, std::make_format_args(std::forward<decltype(args)>(args)...)) << std::endl;
+            << std::vformat(format, std::make_format_args(args...)) << std::endl;
     }
     void logError(const std::string& format, auto&&... args)
     {
-        std::cout << std::format("{:%Y-%m-%d %H:%M:%S} ", std::chrono::system_clock::now()) << "[ERROR] "
-            << std::vformat(format, std::make_format_args(std::forward<decltype(args)>(args)...)) << std::endl;
+        std::cerr << std::format("{:%Y-%m-%d %H:%M:%S} ", std::chrono::system_clock::now()) << "[ERROR] "
+            << std::vformat(format, std::make_format_args(args...)) << std::endl;
     }
 
 private:

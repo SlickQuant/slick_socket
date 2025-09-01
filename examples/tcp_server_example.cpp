@@ -1,4 +1,4 @@
-#include <tcp_server_base.h>
+#include <tcp_server.h>
 #include <iostream>
 #include <string>
 
@@ -6,23 +6,17 @@ class TCPServer : public slick_socket::TCPServerBase<TCPServer>
 {
 public:
     TCPServer(const slick_socket::TCPServerConfig& config)
-        : slick_socket::TCPServerBase<TCPServer>(config)
+        : slick_socket::TCPServerBase<TCPServer>("Echo TCP Server", config)
     {
     }
 
-    void onClientConnected(int client_id, const std::string& client_address)
+    void onClientConnected(int client_id, const std::string& client_address) {}
+    void onClientDisconnected(int client_id) {}
+    void onClientData(int client_id, const uint8_t* data, size_t length)
     {
-        logger_.logInfo("Client connected: ID={}, Address={}", client_id, client_address);
-    }
-
-    void onClientDisconnected(int client_id)
-    {
-        std::cout << "Client disconnected: ID=" << client_id << std::endl;
-    }
-
-    void onClientData(int client_id, const std::vector<uint8_t>& data)
-    {
-        std::cout << "Data received from client ID=" << client_id << ", Size=" << data.size() << std::endl;
+        std::string msg((char*)data, length);
+        std::cout << "Data received from client ID=" << client_id << ", " << msg << std::endl;
+        send_data(client_id, msg);
     }
 };
 
@@ -36,11 +30,7 @@ int main()
 
     TCPServer server(config);
 
-    if (server.start())
-    {
-        std::cout << "Server started successfully on port " << config.port << std::endl;
-    }
-    else
+    if (!server.start())
     {
         std::cerr << "Failed to start server." << std::endl;
         return -1;
@@ -50,7 +40,5 @@ int main()
     std::cin.get();
 
     server.stop();
-    std::cout << "Server stopped." << std::endl;
-
     return 0;
 }

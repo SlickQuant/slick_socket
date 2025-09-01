@@ -30,7 +30,7 @@ template<typename DrivedT, typename LoggerT = ConsoleLogger>
 class TCPServerBase
 {
 public:
-    explicit TCPServerBase(const TCPServerConfig& config = TCPServerConfig(), LoggerT& logger = ConsoleLogger::instance());
+    explicit TCPServerBase(std::string name, const TCPServerConfig& config = TCPServerConfig(), LoggerT& logger = ConsoleLogger::instance());
     virtual ~TCPServerBase();
 
     // Delete copy operations
@@ -90,6 +90,7 @@ protected:
         std::string address;
     };
 
+    std::string name_;
     TCPServerConfig config_;
     LoggerT& logger_;
     std::atomic_bool running_{false};
