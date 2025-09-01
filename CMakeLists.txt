@@ -36,11 +36,15 @@ if (MSVC)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(examples)
+
+option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
+if (BUILD_SLICK_SOCKET_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
 # Tests
-option(BUILD_TESTING "Build tests" ON)
-if(BUILD_TESTING)
+option(BUILD_SLICK_SOCKET_TESTING "Build tests" ON)
+if(BUILD_SLICK_SOCKET_TESTING)
   find_package(GTest CONFIG REQUIRED)
   enable_testing()
   add_subdirectory(tests)
