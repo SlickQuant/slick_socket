@@ -8,6 +8,7 @@ add_executable(tests
     tcp_server_tests.cpp
     tcp_client_tests.cpp
     integration_tests.cpp
+    multicast_sender_tests.cpp
 )
 
 target_link_libraries(tests
