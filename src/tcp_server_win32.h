@@ -263,7 +263,7 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
     if (client_socket == INVALID_SOCKET)
     {
         int error = WSAGetLastError();
-        if (error != WSAEWOULDBLOCK)
+        if (error != WSAEWOULDBLOCK && error != WSAENOTSOCK)
         {
             logger_.logError("Failed to accept client. error={}", error);
         }

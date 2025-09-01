@@ -6,16 +6,14 @@ include(GoogleTest)
 # Network Tests
 add_executable(tests
     tcp_server_tests.cpp
-    mock_network.h
-    test_fixtures.h
+    tcp_client_tests.cpp
+    integration_tests.cpp
 )
 
 target_link_libraries(tests
     PRIVATE
     GTest::gtest_main
-    GTest::gmock_main
-    tcp_server
-    utils
+    slick_socket
 )
 
 target_include_directories(tests

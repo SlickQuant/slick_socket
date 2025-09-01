@@ -12,34 +12,37 @@ namespace slick_socket::test
 class MockClientConnectedCallback
 {
 public:
-    MOCK_METHOD(void, operator(), (int client_id, const std::string& client_address), (const));
+    MOCK_METHOD2(Call, void(int client_id, const std::string& client_address));
+    void operator()(int client_id, const std::string& client_address) { Call(client_id, client_address); }
 };
 
 class MockClientDisconnectedCallback
 {
 public:
-    MOCK_METHOD(void, operator(), (int client_id), (const));
+    MOCK_METHOD1(Call, void(int client_id));
+    void operator()(int client_id) { Call(client_id); }
 };
 
 class MockClientDataCallback
 {
 public:
-    MOCK_METHOD(void, operator(), (int client_id, const std::vector<uint8_t>& data), (const));
+    MOCK_METHOD2(Call, void(int client_id, const std::vector<uint8_t>& data));
+    void operator()(int client_id, const std::vector<uint8_t>& data) { Call(client_id, data); }
 };
 
 // Mock network interface for testing network operations
 class MockNetworkInterface
 {
 public:
-    MOCK_METHOD(bool, initialize, (), ());
-    MOCK_METHOD(bool, createSocket, (SOCKET& socket), ());
-    MOCK_METHOD(bool, bindSocket, (SOCKET socket, uint16_t port), ());
-    MOCK_METHOD(bool, listenSocket, (SOCKET socket, int backlog), ());
-    MOCK_METHOD(bool, acceptConnection, (SOCKET server_socket, SOCKET& client_socket, std::string& client_address), ());
-    MOCK_METHOD(bool, receiveData, (SOCKET socket, std::vector<uint8_t>& buffer), ());
-    MOCK_METHOD(bool, sendData, (SOCKET socket, const std::vector<uint8_t>& data), ());
-    MOCK_METHOD(void, closeSocket, (SOCKET socket), ());
-    MOCK_METHOD(void, cleanup, (), ());
+    MOCK_METHOD0(initialize, bool());
+    MOCK_METHOD1(createSocket, bool(SOCKET& socket));
+    MOCK_METHOD2(bindSocket, bool(SOCKET socket, uint16_t port));
+    MOCK_METHOD2(listenSocket, bool(SOCKET socket, int backlog));
+    MOCK_METHOD3(acceptConnection, bool(SOCKET server_socket, SOCKET& client_socket, std::string& client_address));
+    MOCK_METHOD2(receiveData, bool(SOCKET socket, std::vector<uint8_t>& buffer));
+    MOCK_METHOD2(sendData, bool(SOCKET socket, const std::vector<uint8_t>& data));
+    MOCK_METHOD1(closeSocket, void(SOCKET socket));
+    MOCK_METHOD0(cleanup, void());
 };
 
 // Test helper class for simulating client connections
@@ -75,4 +78,4 @@ public:
     static void simulateNetworkDelay(int milliseconds);
 };
 
-} // namespace exchange_simulator::test
+} // namespace slick_socket::test
