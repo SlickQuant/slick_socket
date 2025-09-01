@@ -28,3 +28,29 @@ target_include_directories(multicast_sender_example
 target_link_libraries(multicast_sender_example
     PRIVATE
     slick_socket)
+
+add_executable(multicast_receiver_example
+    multicast_receiver_example.cpp
+)
+
+target_include_directories(multicast_receiver_example
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(multicast_receiver_example
+    PRIVATE
+    slick_socket)
+
+add_executable(multicast_integration_example
+    multicast_integration_example.cpp
+)
+
+target_include_directories(multicast_integration_example
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(multicast_integration_example
+    PRIVATE
+    slick_socket)
