@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <csignal>
 #include <algorithm>
+#include <cstring>
 
 namespace slick_socket
 {
