@@ -319,7 +319,6 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
 
     // Notify about new client
     derived().onClientConnected(client_id, client_address);
-    logger_.logInfo("{} client connected: ID={}, Address={}", name_, client_id, client_address);
 }
 
 template<typename DrivedT, typename LoggerT>
@@ -343,21 +342,19 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
     {
         // Client disconnected
         close(socket);
+        clients_.erase(it);
         // Notify about client disconnection
         derived().onClientDisconnected(client_id);
-        logger_.logInfo("{} client disconnected: ID={}", name_, client_id);
-        clients_.erase(it);
     }
     else
     {
         // Error
         if (errno != EAGAIN && errno != EWOULDBLOCK)
         {
-            logger_.logError("Receive error for client");
+            logger_.logError("Receive error for client ID={}", client_id);
             close(socket);
-            derived().onClientDisconnected(client_id);
-            logger_.logInfo("{} client disconnected: ID={}", name_, client_id);
             clients_.erase(it);
+            derived().onClientDisconnected(client_id);
         }
     }
 }

@@ -16,8 +16,16 @@ public:
     {
     }
 
-    void onConnected() {}
-    void onDisconnected() {}
+    void onConnected()
+    {
+        logger_.logInfo("Successfully connected to server");
+    }
+
+    void onDisconnected()
+    {
+        logger_.logInfo("Successfully disconnected from server");
+    }
+
     void onData(const uint8_t* data, size_t length)
     {
         std::string received_data((const char*)data, length);

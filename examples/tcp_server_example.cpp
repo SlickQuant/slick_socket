@@ -10,8 +10,16 @@ public:
     {
     }
 
-    void onClientConnected(int client_id, const std::string& client_address) {}
-    void onClientDisconnected(int client_id) {}
+    void onClientConnected(int client_id, const std::string& client_address)
+    {
+        logger_.logInfo("{} client connected: ID={}, Address={}", name_, client_id, client_address);
+    }
+
+    void onClientDisconnected(int client_id)
+    {
+        logger_.logInfo("{} client disconnected: ID={}", name_, client_id);
+    }
+
     void onClientData(int client_id, const uint8_t* data, size_t length)
     {
         std::string msg((char*)data, length);
