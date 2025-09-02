@@ -47,7 +47,18 @@ if (MSVC)
   set(CMAKE_SUPPRESS_REGENERATION true)   # supress zero_check project
 endif()
 
-add_subdirectory(src)
+add_library(slick_socket INTERFACE)
+target_include_directories(slick_socket INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+if(WIN32)
+  target_compile_definitions(slick_socket INTERFACE _WIN32_WINNT=0x0601)
+  target_link_libraries(slick_socket INTERFACE ws2_32)
+elseif(UNIX)
+  # Unix doesn't need additional libraries for basic socket operations
+endif()
 
 option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
 if (BUILD_SLICK_SOCKET_EXAMPLES)
