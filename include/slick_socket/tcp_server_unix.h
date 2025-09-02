@@ -139,38 +139,44 @@ inline bool TCPServerBase<DrivedT, LoggerT>::send_data(int client_id, const std:
         return false;
     }
 
-    // Send data to client (non-blocking)
-    ssize_t sent = send(it->second.socket, data.data(), data.size(), MSG_NOSIGNAL);
-    if (sent < 0)
+    size_t total_sent = 0;
+    size_t data_size = data.size();
+    const uint8_t* buffer = data.data();
+
+    // Keep sending until all data is sent
+    while (total_sent < data_size)
     {
-        // Check for non-blocking specific errors
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        ssize_t sent = send(it->second.socket, buffer + total_sent, data_size - total_sent, MSG_NOSIGNAL);
+        if (sent < 0)
         {
-            logger_.logWarning("Send would block - socket buffer full for client {}", client_id);
+            // Check for non-blocking specific errors
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                // Socket buffer is full, retry immediately
+                continue;
+            }
+
+            logger_.logError("Failed to send data to client {}: {}", client_id, std::strerror(errno));
+
+            // Check if connection is broken
+            if (errno == ECONNRESET || errno == EPIPE || errno == ENOTCONN)
+            {
+                logger_.logInfo("Connection lost during send to client {}, disconnecting", client_id);
+                disconnect_client(client_id);
+            }
             return false;
         }
 
-        logger_.logError("Failed to send data to client {}: {}", client_id, std::strerror(errno));
-
-        // Check if connection is broken
-        if (errno == ECONNRESET || errno == EPIPE || errno == ENOTCONN)
+        total_sent += sent;
+        
+        if (sent > 0 && total_sent < data_size)
         {
-            logger_.logInfo("Connection lost during send to client {}, disconnecting", client_id);
-            disconnect_client(client_id);
+            logger_.logTrace("Partial send to client {}: sent {} bytes, {} remaining", 
+                           client_id, sent, data_size - total_sent);
         }
-        return false;
     }
 
-    if (sent != static_cast<ssize_t>(data.size()))
-    {
-        size_t data_size = data.size();
-        logger_.logWarning("Partial send to client {}: sent {} bytes out of {}", client_id, sent, data_size);
-        // In non-blocking mode, partial sends can happen when socket buffer is full
-        // For now, we consider this a failure and let caller retry
-        return false;
-    }
-
-    logger_.logTrace("Successfully sent {} bytes to client {}", sent, client_id);
+    logger_.logTrace("Successfully sent {} bytes to client {}", total_sent, client_id);
     return true;
 }
 

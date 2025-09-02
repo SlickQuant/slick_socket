@@ -137,40 +137,46 @@ inline bool TCPServerBase<DrivedT, LoggerT>::send_data(int client_id, const std:
         return false;
     }
 
-    // Send data to client (non-blocking)
-    int sent = send(it->second.socket, (char*)data.data(), (int)data.size(), 0);
-    if (sent == SOCKET_ERROR)
-    {
-        int error = WSAGetLastError();
+    size_t total_sent = 0;
+    size_t data_size = data.size();
+    const char* buffer = reinterpret_cast<const char*>(data.data());
 
-        // Check for non-blocking specific errors
-        if (error == WSAEWOULDBLOCK)
+    // Keep sending until all data is sent
+    while (total_sent < data_size)
+    {
+        int sent = send(it->second.socket, buffer + total_sent, static_cast<int>(data_size - total_sent), 0);
+        if (sent == SOCKET_ERROR)
         {
-            logger_.logWarning("Send would block - socket buffer full for client {}", client_id);
+            int error = WSAGetLastError();
+
+            // Check for non-blocking specific errors
+            if (error == WSAEWOULDBLOCK)
+            {
+                // Socket buffer is full, retry immediately
+                continue;
+            }
+
+            logger_.logError("Failed to send data to client {}: error {}", client_id, error);
+
+            // Check if connection is broken
+            if (error == WSAECONNRESET || error == WSAECONNABORTED || error == WSAENOTCONN)
+            {
+                logger_.logInfo("Connection lost during send to client {}, disconnecting", client_id);
+                disconnect_client(client_id);
+            }
             return false;
         }
 
-        logger_.logError("Failed to send data to client {}: error {}", client_id, error);
-
-        // Check if connection is broken
-        if (error == WSAECONNRESET || error == WSAECONNABORTED || error == WSAENOTCONN)
+        total_sent += sent;
+        
+        if (sent > 0 && total_sent < data_size)
         {
-            logger_.logInfo("Connection lost during send to client {}, disconnecting", client_id);
-            disconnect_client(client_id);
+            logger_.logTrace("Partial send to client {}: sent {} bytes, {} remaining", 
+                           client_id, sent, data_size - total_sent);
         }
-        return false;
     }
 
-    if (sent != (int)data.size())
-    {
-        size_t data_size = data.size();
-        logger_.logWarning("Partial send to client {}: sent {} bytes out of {}", client_id, sent, data_size);
-        // In non-blocking mode, partial sends can happen when socket buffer is full
-        // For now, we consider this a failure and let caller retry
-        return false;
-    }
-
-    logger_.logTrace("Successfully sent {} bytes to client {}", sent, client_id);
+    logger_.logTrace("Successfully sent {} bytes to client {}", total_sent, client_id);
     return true;
 }
 
