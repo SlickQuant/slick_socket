@@ -27,7 +27,7 @@ struct TCPServerConfig
     int cpu_affinity = -1;  // -1 means no affinity, otherwise specify CPU core index
 };
 
-template<typename DrivedT, typename LoggerT = ConsoleLogger>
+template<typename DerivedT, typename LoggerT = ConsoleLogger>
 class TCPServerBase
 {
 public:
@@ -52,8 +52,8 @@ public:
     }
 
 protected:
-    DrivedT& derived() { return static_cast<DrivedT&>(*this); }
-    const DrivedT& derived() const { return static_cast<const DrivedT&>(*this); }
+    DerivedT& derived() { return static_cast<DerivedT&>(*this); }
+    const DerivedT& derived() const { return static_cast<const DerivedT&>(*this); }
 
     void server_loop();
     void accept_new_client();
@@ -75,8 +75,6 @@ protected:
         return clients_.size();
     }
 
-protected:
-
 #if defined(_WIN32) || defined(_WIN64)
     using SocketT = SOCKET;
     static constexpr SocketT invalid_socket = INVALID_SOCKET;
@@ -84,6 +82,10 @@ protected:
     using SocketT = int;
     static constexpr SocketT invalid_socket = -1;
 #endif
+
+    void close_socket(SocketT socket);
+
+protected:
 
     struct ClientInfo
     {
@@ -99,7 +101,14 @@ protected:
     std::thread server_thread_;
     SocketT server_socket_ = invalid_socket;
 
+#if !defined(_WIN32) && !defined(_WIN64)
+    int epoll_fd_ = -1;  // epoll file descriptor for Unix/Linux
+#else
+    HANDLE epoll_fd_ = nullptr;  // wepoll handle for Windows (epoll-like API)
+#endif
+
     std::unordered_map<int, ClientInfo> clients_;
+    std::unordered_map<SocketT, int> socket_to_client_id_;
     std::atomic<int> next_client_id_{1};
 };
 

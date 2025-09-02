@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(BUILD_VERSION 0.1.0.0)
-project(slick_socket VERSION ${BUILD_VERSION} LANGUAGES CXX)
+project(slick_socket VERSION ${BUILD_VERSION} LANGUAGES C CXX)
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -47,17 +47,23 @@ if (MSVC)
   set(CMAKE_SUPPRESS_REGENERATION true)   # supress zero_check project
 endif()
 
-add_library(slick_socket INTERFACE)
-target_include_directories(slick_socket INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-
 if(WIN32)
-  target_compile_definitions(slick_socket INTERFACE _WIN32_WINNT=0x0601)
-  target_link_libraries(slick_socket INTERFACE ws2_32)
+  add_library(slick_socket STATIC src/wepoll.c)
+  set_target_properties(slick_socket PROPERTIES 
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+  )
+  target_include_directories(slick_socket PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_compile_definitions(slick_socket PUBLIC _WIN32_WINNT=0x0601)
+  target_link_libraries(slick_socket PUBLIC ws2_32)
 elseif(UNIX)
-  # Unix doesn't need additional libraries for basic socket operations
+  add_library(slick_socket INTERFACE)
+  target_include_directories(slick_socket INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
 endif()
 
 option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
@@ -75,6 +81,9 @@ endif()
 
 # Installation rules
 install(DIRECTORY include/ DESTINATION include)
+if (WIN32)
+  install(DIRECTORY ${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}/ DESTINATION lib)
+endif()
 
 # Automatically run install after build in Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -86,7 +95,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 
   if (PROJECT_IS_TOP_LEVEL)
       add_custom_target(package_slick_socket ALL
-          COMMAND ${CMAKE_COMMAND} -E tar "cfv" "${CMAKE_BINARY_DIR}/dist/slick_socket_${BUILD_VERSION}.zip" --format=zip "include"
+          COMMAND ${CMAKE_COMMAND} -E tar "cfv" "${CMAKE_BINARY_DIR}/dist/slick_socket_${BUILD_VERSION}.zip" --format=zip "include" "lib"
           WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/dist"
           COMMENT "Creating zip archive"
       )

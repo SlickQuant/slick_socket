@@ -7,6 +7,8 @@ target_include_directories(tcp_server_example
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR})
 
+target_link_libraries(tcp_server_example PRIVATE slick_socket)
+
 add_executable(tcp_client_example
     tcp_client_example.cpp
 )
@@ -15,6 +17,8 @@ target_include_directories(tcp_client_example
     PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(tcp_client_example PRIVATE slick_socket)
 
 add_executable(multicast_sender_example
     multicast_sender_example.cpp

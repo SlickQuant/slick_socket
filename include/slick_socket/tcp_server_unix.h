@@ -13,26 +13,46 @@
 #include <algorithm>
 #include <cstring>
 #include <pthread.h>
+#include <sys/epoll.h>
 
 namespace slick_socket
 {
 
-template<typename DrivedT, typename LoggerT>
-inline TCPServerBase<DrivedT, LoggerT>::TCPServerBase(std::string name, const TCPServerConfig& config, LoggerT& logger)
+template<typename DerivedT, typename LoggerT>
+inline TCPServerBase<DerivedT, LoggerT>::TCPServerBase(std::string name, const TCPServerConfig& config, LoggerT& logger)
     : name_(std::move(name)), config_(config), logger_(logger)
 {
     // Ignore SIGPIPE to prevent crashes when writing to closed sockets
     std::signal(SIGPIPE, SIG_IGN);
 }
 
-template<typename DrivedT, typename LoggerT>
-inline TCPServerBase<DrivedT, LoggerT>::~TCPServerBase()
+template<typename DerivedT, typename LoggerT>
+inline TCPServerBase<DerivedT, LoggerT>::~TCPServerBase()
 {
     stop();
+
+    if (server_socket_ >= 0)
+    {
+        close(server_socket_);
+        server_socket_ = -1;
+    }
+
+    for (auto& [id, client] : clients_)
+    {
+        close(client.socket);
+    }
+    clients_.clear();
+    socket_to_client_id_.clear();
+
+    if (epoll_fd_ >= 0)
+    {
+        close(epoll_fd_);
+        epoll_fd_ = -1;
+    }
 }
 
-template<typename DrivedT, typename LoggerT>
-inline bool TCPServerBase<DrivedT, LoggerT>::start()
+template<typename DerivedT, typename LoggerT>
+inline bool TCPServerBase<DerivedT, LoggerT>::start()
 {
     if (running_.load(std::memory_order_relaxed))
     {
@@ -91,14 +111,14 @@ inline bool TCPServerBase<DrivedT, LoggerT>::start()
     running_.store(true, std::memory_order_release);
 
     // Start single-threaded server loop
-    server_thread_ = std::thread(&TCPServerBase<DrivedT, LoggerT>::server_loop, this);
+    server_thread_ = std::thread(&TCPServerBase<DerivedT, LoggerT>::server_loop, this);
 
     logger_.logInfo("{} started", name_);
     return true;
 }
 
-template<typename DrivedT, typename LoggerT>
-inline void TCPServerBase<DrivedT, LoggerT>::stop()
+template<typename DerivedT, typename LoggerT>
+inline void TCPServerBase<DerivedT, LoggerT>::stop()
 {
     if (!running_.load(std::memory_order_relaxed))
     {
@@ -108,7 +128,6 @@ inline void TCPServerBase<DrivedT, LoggerT>::stop()
     logger_.logInfo("Stopping {}...", name_);
     running_.store(false, std::memory_order_release);
 
-    // Close server socket to break select()
     if (server_socket_ >= 0)
     {
         close(server_socket_);
@@ -121,6 +140,7 @@ inline void TCPServerBase<DrivedT, LoggerT>::stop()
         close(client.socket);
     }
     clients_.clear();
+    socket_to_client_id_.clear();
 
     // Wait for server thread to finish
     if (server_thread_.joinable())
@@ -131,8 +151,8 @@ inline void TCPServerBase<DrivedT, LoggerT>::stop()
     logger_.logInfo("{} stopped", name_);
 }
 
-template<typename DrivedT, typename LoggerT>
-inline bool TCPServerBase<DrivedT, LoggerT>::send_data(int client_id, const std::vector<uint8_t>& data)
+template<typename DerivedT, typename LoggerT>
+inline bool TCPServerBase<DerivedT, LoggerT>::send_data(int client_id, const std::vector<uint8_t>& data)
 {
     auto it = clients_.find(client_id);
     if (it == clients_.end())
@@ -181,19 +201,27 @@ inline bool TCPServerBase<DrivedT, LoggerT>::send_data(int client_id, const std:
     return true;
 }
 
-template<typename DrivedT, typename LoggerT>
-inline void TCPServerBase<DrivedT, LoggerT>::disconnect_client(int client_id)
+template<typename DerivedT, typename LoggerT>
+inline void TCPServerBase<DerivedT, LoggerT>::close_socket(SocketT socket)
+{
+    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, socket, nullptr);
+    socket_to_client_id_.erase(socket);
+    close(socket);
+}
+
+template<typename DerivedT, typename LoggerT>
+inline void TCPServerBase<DerivedT, LoggerT>::disconnect_client(int client_id)
 {
     auto it = clients_.find(client_id);
     if (it != clients_.end())
     {
-        close(it->second.socket);
+        close_socket(it->second.socket);
         clients_.erase(it);
     }
 }
 
-template<typename DrivedT, typename LoggerT>
-void TCPServerBase<DrivedT, LoggerT>::server_loop()
+template<typename DerivedT, typename LoggerT>
+void TCPServerBase<DerivedT, LoggerT>::server_loop()
 {
     // Set CPU affinity if specified
     if (config_.cpu_affinity >= 0)
@@ -215,77 +243,72 @@ void TCPServerBase<DrivedT, LoggerT>::server_loop()
         }
     }
 
-    fd_set read_fds;
-    struct timeval timeout;
+    // Create epoll instance
+    epoll_fd_ = epoll_create1(0);
+    if (epoll_fd_ < 0)
+    {
+        logger_.logError("Failed to create epoll instance: {}", std::strerror(errno));
+        return;
+    }
+
+    // Add server socket to epoll
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = server_socket_;
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, server_socket_, &ev) < 0)
+    {
+        logger_.logError("Failed to add server socket to epoll: {}", std::strerror(errno));
+        close(epoll_fd_);
+        epoll_fd_ = -1;
+        return;
+    }
+
+    const int MAX_EVENTS = 64;
+    struct epoll_event events[MAX_EVENTS];
     std::vector<uint8_t> buffer(config_.receive_buffer_size);
 
     while (running_.load())
     {
-        // Clear and setup file descriptor set
-        FD_ZERO(&read_fds);
-        int max_fd = 0;
-
-        // Add server socket
-        if (server_socket_ >= 0)
+        // Wait for events with 1 second timeout
+        int num_events = epoll_wait(epoll_fd_, events, MAX_EVENTS, 0);
+        if (num_events < 0)
         {
-            FD_SET(server_socket_, &read_fds);
-            max_fd = server_socket_;
-        }
-
-        // Add all client sockets
-        std::vector<int> active_clients;
-        for (const auto& [id, client] : clients_)
-        {
-            if (client.socket >= 0)
+            if (errno == EINTR)
             {
-                FD_SET(client.socket, &read_fds);
-                if (client.socket > max_fd)
-                {
-                    max_fd = client.socket;
-                }
-                active_clients.push_back(id);
+                continue;
             }
+            logger_.logError("epoll_wait failed: {}", std::strerror(errno));
+            break;
         }
 
-        // Set timeout
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
-
-        // Wait for activity
-        int result = select(max_fd + 1, &read_fds, nullptr, nullptr, &timeout);
-        if (result < 0)
+        for (int i = 0; i < num_events; i++)
         {
-            if (errno != EINTR)
+            if (events[i].data.fd == server_socket_)
             {
-                logger_.logError("Select failed");
-                break;
-            }
-            continue;
-        }
-
-        if (result > 0)
-        {
-            // Check for new connections
-            if (server_socket_ >= 0 && FD_ISSET(server_socket_, &read_fds))
-            {
+                // New connection on server socket
                 accept_new_client();
             }
-
-            // Check for client data
-            for (int client_id : active_clients)
+            else
             {
-                auto it = clients_.find(client_id);
-                if (it != clients_.end() && FD_ISSET(it->second.socket, &read_fds))
+                auto it = socket_to_client_id_.find(events[i].data.fd);
+                if (it != socket_to_client_id_.end())
                 {
-                    handle_client_data(client_id, buffer);
+                    handle_client_data(it->second, buffer);
                 }
             }
         }
     }
+
+    // Clean up
+    if (epoll_fd_ != nullptr)
+    {
+        epoll_close(epoll_fd_);
+        epoll_fd_ = nullptr;
+    }
 }
 
-template<typename DrivedT, typename LoggerT>
-void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
+template<typename DerivedT, typename LoggerT>
+void TCPServerBase<DerivedT, LoggerT>::accept_new_client()
 {
     sockaddr_in client_addr{};
     socklen_t addr_len = sizeof(client_addr);
@@ -307,22 +330,34 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
         fcntl(client_socket, F_SETFL, flags | O_NONBLOCK);
     }
 
+    // Add client socket to epoll
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLET;  // Edge-triggered mode
+    ev.data.fd = client_socket;
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_socket, &ev) < 0)
+    {
+        logger_.logError("Failed to add client socket to epoll: {}", std::strerror(errno));
+        close(client_socket);
+        return;
+    }
+
     // Get client address
     char addr_str[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &client_addr.sin_addr, addr_str, INET_ADDRSTRLEN);
 
-    int client_id = next_client_id_.fetch_add(1);
+    uint32_t client_id = next_client_id_.fetch_add(1);
     std::string client_address = addr_str;
 
-    // Add client to map
+    // Add client to maps
     clients_[client_id] = {client_socket, client_address};
+    socket_to_client_id_[client_socket] = client_id;
 
     // Notify about new client
     derived().onClientConnected(client_id, client_address);
 }
 
-template<typename DrivedT, typename LoggerT>
-void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vector<uint8_t>& buffer)
+template<typename DerivedT, typename LoggerT>
+void TCPServerBase<DerivedT, LoggerT>::handle_client_data(int client_id, std::vector<uint8_t>& buffer)
 {
     auto it = clients_.find(client_id);
     if (it == clients_.end())
@@ -341,7 +376,7 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
     else if (received == 0)
     {
         // Client disconnected
-        close(socket);
+        close_socket(socket);
         clients_.erase(it);
         // Notify about client disconnection
         derived().onClientDisconnected(client_id);
@@ -352,7 +387,7 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
         if (errno != EAGAIN && errno != EWOULDBLOCK)
         {
             logger_.logError("Receive error for client ID={}", client_id);
-            close(socket);
+            close_socket(socket);
             clients_.erase(it);
             derived().onClientDisconnected(client_id);
         }

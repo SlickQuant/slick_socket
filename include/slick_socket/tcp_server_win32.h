@@ -5,6 +5,7 @@
 #include "tcp_server.h"
 #include <ws2tcpip.h>
 #include <windows.h>
+#include "wepoll.h"
 #include <queue>
 #include <algorithm>
 
@@ -29,6 +30,26 @@ template<typename DrivedT, typename LoggerT>
 inline TCPServerBase<DrivedT, LoggerT>::~TCPServerBase()
 {
     stop();
+
+    if (server_socket_ != INVALID_SOCKET)
+    {
+        closesocket(server_socket_);
+        server_socket_ = INVALID_SOCKET;
+    }
+
+    for (auto& [client_id, client_info] : clients_)
+    {
+        closesocket(client_info.socket);
+    }
+    clients_.clear();
+    socket_to_client_id_.clear();
+
+    if (epoll_fd_ != nullptr)
+    {
+        epoll_close(epoll_fd_);
+        epoll_fd_ = nullptr;
+    }
+
     WSACleanup();
 }
 
@@ -106,7 +127,6 @@ inline void TCPServerBase<DrivedT, LoggerT>::stop()
     logger_.logInfo("Stopping {}...", name_);
     running_.store(false, std::memory_order_release);
 
-    // Close server socket to break select()
     if (server_socket_ != INVALID_SOCKET)
     {
         closesocket(server_socket_);
@@ -119,11 +139,19 @@ inline void TCPServerBase<DrivedT, LoggerT>::stop()
         closesocket(client_info.socket);
     }
     clients_.clear();
+    socket_to_client_id_.clear();
 
     // Wait for server thread to finish
     if (server_thread_.joinable())
     {
         server_thread_.join();
+    }
+
+    // Clean up epoll
+    if (epoll_fd_ != nullptr)
+    {
+        epoll_close(epoll_fd_);
+        epoll_fd_ = nullptr;
     }
 
     logger_.logInfo("{} stopped", name_);
@@ -182,12 +210,20 @@ inline bool TCPServerBase<DrivedT, LoggerT>::send_data(int client_id, const std:
 }
 
 template<typename DrivedT, typename LoggerT>
+inline void TCPServerBase<DrivedT, LoggerT>::close_socket(SocketT socket)
+{
+    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, socket, nullptr);
+    socket_to_client_id_.erase(socket);
+    closesocket(socket);
+}
+
+template<typename DrivedT, typename LoggerT>
 inline void TCPServerBase<DrivedT, LoggerT>::disconnect_client(int client_id)
 {
     auto it = clients_.find(client_id);
     if (it != clients_.end())
     {
-        closesocket(it->second.socket);
+        close_socket(it->second.socket);
         clients_.erase(it);
     }
 }
@@ -212,68 +248,70 @@ void TCPServerBase<DrivedT, LoggerT>::server_loop()
         }
     }
 
-    fd_set read_fds;
-    struct timeval timeout;
+    // Create epoll instance using wepoll
+    epoll_fd_ = epoll_create1(0);
+    if (epoll_fd_ == nullptr)
+    {
+        logger_.logError("Failed to create epoll instance");
+        return;
+    }
+
+    // Add server socket to epoll
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = (int)(intptr_t)server_socket_;  // Cast SOCKET to int for wepoll
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, (SOCKET)server_socket_, &ev) < 0)
+    {
+        logger_.logError("Failed to add server socket to epoll");
+        epoll_close(epoll_fd_);
+        return;
+    }
+
+    const int MAX_EVENTS = 64;
+    struct epoll_event events[MAX_EVENTS];
     std::vector<uint8_t> buffer(config_.receive_buffer_size);
 
     while (running_.load(std::memory_order_relaxed))
     {
-        // Clear and setup file descriptor set
-        FD_ZERO(&read_fds);
-        int max_fd = 0;
-
-        // Add server socket
-        if (server_socket_ != INVALID_SOCKET)
+        // Wait for events with 1 second timeout
+        int num_events = epoll_wait(epoll_fd_, events, MAX_EVENTS, 1000);
+        
+        if (num_events < 0)
         {
-            FD_SET(server_socket_, &read_fds);
-            max_fd = server_socket_;
-        }
-
-        // Add all client sockets
-        std::vector<int> active_clients;
-        for (const auto& [client_id, client_info] : clients_)
-        {
-            if (client_info.socket != INVALID_SOCKET)
+            if (errno == EINTR)
             {
-                FD_SET(client_info.socket, &read_fds);
-                if (client_info.socket > max_fd)
-                {
-                    max_fd = client_info.socket;
-                }
-                active_clients.push_back(client_id);
+                continue;
             }
-        }
-
-        // Set timeout
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
-
-        // Wait for activity
-        int result = select(max_fd + 1, &read_fds, nullptr, nullptr, &timeout);
-        if (result == SOCKET_ERROR)
-        {
-            logger_.logError("Select failed");
+            logger_.logError("epoll_wait failed: {}", WSAGetLastError());
             break;
         }
 
-        if (result > 0)
+        for (int i = 0; i < num_events; i++)
         {
-            // Check for new connections
-            if (FD_ISSET(server_socket_, &read_fds))
+            SOCKET sock = (SOCKET)(intptr_t)events[i].data.fd;
+            
+            if (sock == server_socket_)
             {
+                // New connection on server socket
                 accept_new_client();
             }
-
-            // Check for client data
-            for (int client_id : active_clients)
+            else
             {
-                auto it = clients_.find(client_id);
-                if (it != clients_.end() && FD_ISSET(it->second.socket, &read_fds))
+                // Data from client socket - O(1) lookup using socket_to_client_id_ map
+                auto it = socket_to_client_id_.find(sock);
+                if (it != socket_to_client_id_.end())
                 {
-                    handle_client_data(client_id, buffer);
+                    handle_client_data(it->second, buffer);
                 }
             }
         }
+    }
+
+    // Clean up
+    if (epoll_fd_ != nullptr)
+    {
+        epoll_close(epoll_fd_);
+        epoll_fd_ = nullptr;
     }
 }
 
@@ -303,6 +341,17 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
         return;
     }
 
+    // Add client socket to epoll
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLOUT | EPOLLPRI | EPOLLRDHUP;
+    ev.data.fd = (int)(intptr_t)client_socket;
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_socket, &ev) < 0)
+    {
+        logger_.logError("Failed to add client socket to epoll: {}", WSAGetLastError());
+        closesocket(client_socket);
+        return;
+    }
+
     // Get client address
     char addr_str[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &client_addr.sin_addr, addr_str, INET_ADDRSTRLEN);
@@ -310,8 +359,9 @@ void TCPServerBase<DrivedT, LoggerT>::accept_new_client()
     int client_id = next_client_id_.fetch_add(1);
     std::string client_address = addr_str;
 
-    // Add client to map
+    // Add client to maps
     clients_[client_id] = {client_socket, client_address};
+    socket_to_client_id_[client_socket] = client_id;
 
     // Notify about new client
     derived().onClientConnected(client_id, client_address);
@@ -336,7 +386,7 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
     else if (received == 0)
     {
         // Client disconnected
-        closesocket(socket);
+        close_socket(socket);
         clients_.erase(it);
         // Notify about client disconnection
         derived().onClientDisconnected(client_id);
@@ -348,7 +398,7 @@ void TCPServerBase<DrivedT, LoggerT>::handle_client_data(int client_id, std::vec
         if (error != WSAEWOULDBLOCK)
         {
             logger_.logError("Receive error for client ID={}", client_id);
-            closesocket(socket);
+            close_socket(socket);
             clients_.erase(it);
             derived().onClientDisconnected(client_id);
         }

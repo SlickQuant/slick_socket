@@ -107,7 +107,6 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     client_thread_ = std::thread(&TCPClientBase::client_loop, this);
 
     derived().onConnected();
-    logger_.logInfo("Successfully connected to server");
     return true;
 }
 
