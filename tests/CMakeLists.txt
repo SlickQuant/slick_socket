@@ -20,7 +20,7 @@ target_link_libraries(tests
 
 target_include_directories(tests
     PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 

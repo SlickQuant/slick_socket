@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include <tcp_server.h>
-#include <tcp_client.h>
+#include <slick_socket/tcp_server.h>
+#include <slick_socket/tcp_client.h>
 #include <thread>
 #include <chrono>
 #include <atomic>

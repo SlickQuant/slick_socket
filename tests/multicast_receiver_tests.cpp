@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <multicast_receiver.h>
+#include <slick_socket/multicast_receiver.h>
 #include <thread>
 #include <chrono>
 #include <atomic>

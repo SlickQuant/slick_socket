@@ -63,9 +63,7 @@ if(BUILD_SLICK_SOCKET_TESTING)
 endif()
 
 # Installation rules
-install(DIRECTORY src/ DESTINATION include/slick_socket
-  FILES_MATCHING PATTERN "*.h"
-)
+install(DIRECTORY include/ DESTINATION include)
 
 # Automatically run install after build in Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
