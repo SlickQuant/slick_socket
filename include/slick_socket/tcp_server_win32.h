@@ -4,6 +4,7 @@
 
 #include "tcp_server.h"
 #include <ws2tcpip.h>
+#include <windows.h>
 #include <queue>
 #include <algorithm>
 
@@ -194,6 +195,23 @@ inline void TCPServerBase<DrivedT, LoggerT>::disconnect_client(int client_id)
 template<typename DrivedT, typename LoggerT>
 void TCPServerBase<DrivedT, LoggerT>::server_loop()
 {
+    // Set CPU affinity if specified
+    if (config_.cpu_affinity >= 0)
+    {
+        DWORD_PTR mask = 1ULL << config_.cpu_affinity;
+        HANDLE thread = GetCurrentThread();
+        DWORD_PTR result = SetThreadAffinityMask(thread, mask);
+        if (result == 0)
+        {
+            logger_.logWarning("Failed to set CPU affinity to core {}: error {}", 
+                             config_.cpu_affinity, GetLastError());
+        }
+        else
+        {
+            logger_.logInfo("Server thread pinned to CPU core {}", config_.cpu_affinity);
+        }
+    }
+
     fd_set read_fds;
     struct timeval timeout;
     std::vector<uint8_t> buffer(config_.receive_buffer_size);

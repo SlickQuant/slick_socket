@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <csignal>
 #include <cstring>
+#include <pthread.h>
 
 namespace slick_socket
 {
@@ -144,6 +145,26 @@ template<typename DerivedT, typename LoggerT>
 inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
 {
     logger_.logInfo("Client loop started");
+
+    // Set CPU affinity if specified
+    if (config_.cpu_affinity >= 0)
+    {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(config_.cpu_affinity, &cpuset);
+        
+        pthread_t thread = pthread_self();
+        int result = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+        if (result != 0)
+        {
+            logger_.logWarning("Failed to set CPU affinity to core {}: {}", 
+                             config_.cpu_affinity, std::strerror(result));
+        }
+        else
+        {
+            logger_.logInfo("Client thread pinned to CPU core {}", config_.cpu_affinity);
+        }
+    }
 
     // Connection established - handle server communication
     std::vector<uint8_t> buffer(config_.receive_buffer_size);

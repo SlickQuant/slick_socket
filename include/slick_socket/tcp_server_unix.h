@@ -12,6 +12,7 @@
 #include <csignal>
 #include <algorithm>
 #include <cstring>
+#include <pthread.h>
 
 namespace slick_socket
 {
@@ -194,6 +195,26 @@ inline void TCPServerBase<DrivedT, LoggerT>::disconnect_client(int client_id)
 template<typename DrivedT, typename LoggerT>
 void TCPServerBase<DrivedT, LoggerT>::server_loop()
 {
+    // Set CPU affinity if specified
+    if (config_.cpu_affinity >= 0)
+    {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(config_.cpu_affinity, &cpuset);
+        
+        pthread_t thread = pthread_self();
+        int result = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+        if (result != 0)
+        {
+            logger_.logWarning("Failed to set CPU affinity to core {}: {}", 
+                             config_.cpu_affinity, std::strerror(result));
+        }
+        else
+        {
+            logger_.logInfo("Server thread pinned to CPU core {}", config_.cpu_affinity);
+        }
+    }
+
     fd_set read_fds;
     struct timeval timeout;
     std::vector<uint8_t> buffer(config_.receive_buffer_size);

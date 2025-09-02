@@ -4,6 +4,7 @@
 
 #include "tcp_client.h"
 #include <ws2tcpip.h>
+#include <windows.h>
 
 #pragma comment(lib, "ws2_32.lib")
 namespace slick_socket
@@ -141,6 +142,23 @@ template<typename DerivedT, typename LoggerT>
 inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
 {
     logger_.logDebug("Client loop started");
+
+    // Set CPU affinity if specified
+    if (config_.cpu_affinity >= 0)
+    {
+        DWORD_PTR mask = 1ULL << config_.cpu_affinity;
+        HANDLE thread = GetCurrentThread();
+        DWORD_PTR result = SetThreadAffinityMask(thread, mask);
+        if (result == 0)
+        {
+            logger_.logWarning("Failed to set CPU affinity to core {}: error {}", 
+                             config_.cpu_affinity, GetLastError());
+        }
+        else
+        {
+            logger_.logInfo("Client thread pinned to CPU core {}", config_.cpu_affinity);
+        }
+    }
 
     // Connection established - handle server communication
     std::vector<uint8_t> buffer(config_.receive_buffer_size);

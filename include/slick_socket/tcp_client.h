@@ -17,6 +17,7 @@ struct TCPClientConfig
     uint16_t server_port = 5000;
     int receive_buffer_size = 4096;
     std::chrono::milliseconds connection_timeout{30000};
+    int cpu_affinity = -1;  // -1 means no affinity, otherwise specify CPU core index
 };
 
 template<typename DerivedT, typename LoggerT = ConsoleLogger>
