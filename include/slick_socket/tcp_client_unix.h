@@ -15,22 +15,22 @@
 namespace slick_socket
 {
 
-template<typename DerivedT, typename LoggerT>
-inline TCPClientBase<DerivedT, LoggerT>::TCPClientBase(std::string name, const TCPClientConfig& config, LoggerT& logger)
-    : name_(std::move(name)),config_(config), logger_(logger)
+template<typename DerivedT>
+inline TCPClientBase<DerivedT>::TCPClientBase(std::string name, const TCPClientConfig& config)
+    : name_(std::move(name)),config_(config)
 {
     // Ignore SIGPIPE to prevent crashes when writing to closed sockets
     std::signal(SIGPIPE, SIG_IGN);
 }
 
-template<typename DerivedT, typename LoggerT>
-inline TCPClientBase<DerivedT, LoggerT>::~TCPClientBase()
+template<typename DerivedT>
+inline TCPClientBase<DerivedT>::~TCPClientBase()
 {
     disconnect();
 }
 
-template<typename DerivedT, typename LoggerT>
-inline bool TCPClientBase<DerivedT, LoggerT>::connect()
+template<typename DerivedT>
+inline bool TCPClientBase<DerivedT>::connect()
 {
     if (connected_.load(std::memory_order_relaxed))
     {
@@ -41,7 +41,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_ == invalid_socket)
     {
-        logger_.logError("Failed to create socket: {}", std::strerror(errno));
+        LOG_ERROR("Failed to create socket: {}", std::strerror(errno));
         return false;
     }
 
@@ -49,7 +49,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     int flags = fcntl(socket_, F_GETFL, 0);
     if (flags < 0 || fcntl(socket_, F_SETFL, flags | O_NONBLOCK) < 0)
     {
-        logger_.logWarning("Failed to make socket non-blocking: {}", std::strerror(errno));
+        LOG_WARN("Failed to make socket non-blocking: {}", std::strerror(errno));
         return false;
     }
 
@@ -61,19 +61,19 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     // Resolve server address
     if (inet_pton(AF_INET, config_.server_address.c_str(), &server_addr.sin_addr) != 1)
     {
-        logger_.logError("Failed to resolve server address: {}", config_.server_address);
+        LOG_ERROR("Failed to resolve server address: {}", config_.server_address);
         close(socket_);
         socket_ = invalid_socket;
         return false;
     }
 
-    logger_.logInfo("Attempting to connect to {}:{}", config_.server_address, config_.server_port);
+    LOG_INFO("Attempting to connect to {}:{}", config_.server_address, config_.server_port);
 
     // Attempt to connect (non-blocking)
     int result = ::connect(socket_, (sockaddr*)&server_addr, sizeof(server_addr));
     if (result < 0 && errno != EINPROGRESS)
     {
-        logger_.logWarning("Failed to connect to server: {}", std::strerror(errno));
+        LOG_WARN("Failed to connect to server: {}", std::strerror(errno));
         close(socket_);
         socket_ = invalid_socket;
         return false;
@@ -91,7 +91,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     result = select(socket_ + 1, nullptr, &write_fds, nullptr, &timeout);
     if (result <= 0)
     {
-        logger_.logWarning("Connection timeout or failed");
+        LOG_WARN("Connection timeout or failed");
         close(socket_);
         socket_ = invalid_socket;
         return false;
@@ -102,7 +102,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     socklen_t len = sizeof(error);
     if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error != 0)
     {
-        logger_.logWarning("Connection failed: {}", std::strerror(error));
+        LOG_WARN("Connection failed: {}", std::strerror(error));
         close(socket_);
         socket_ = invalid_socket;
         return false;
@@ -114,8 +114,8 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPClientBase<DerivedT, LoggerT>::disconnect()
+template<typename DerivedT>
+inline void TCPClientBase<DerivedT>::disconnect()
 {
     if (!connected_.load(std::memory_order_relaxed))
     {
@@ -137,13 +137,13 @@ inline void TCPClientBase<DerivedT, LoggerT>::disconnect()
         client_thread_.join();
     }
 
-    logger_.logInfo("TCP client disconnected");
+    LOG_INFO("TCP client disconnected");
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
+template<typename DerivedT>
+inline void TCPClientBase<DerivedT>::client_loop()
 {
-    logger_.logInfo("Client loop started");
+    LOG_INFO("Client loop started");
 
     // Set CPU affinity if specified
     if (config_.cpu_affinity >= 0)
@@ -156,12 +156,12 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
         int result = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
         if (result != 0)
         {
-            logger_.logWarning("Failed to set CPU affinity to core {}: {}", 
+            LOG_WARN("Failed to set CPU affinity to core {}: {}", 
                              config_.cpu_affinity, std::strerror(result));
         }
         else
         {
-            logger_.logInfo("Client thread pinned to CPU core {}", config_.cpu_affinity);
+            LOG_INFO("Client thread pinned to CPU core {}", config_.cpu_affinity);
         }
     }
 
@@ -182,7 +182,7 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
         else if (received == 0)
         {
             // Server closed connection
-            logger_.logInfo("Server closed connection");
+            LOG_INFO("Server closed connection");
             connected_.store(false, std::memory_order_release);
             break;
         }
@@ -191,7 +191,7 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
             // Error or would block
             if (errno != EAGAIN && errno != EWOULDBLOCK)
             {
-                logger_.logError("Receive error: {}", std::strerror(errno));
+                LOG_ERROR("Receive error: {}", std::strerror(errno));
                 connected_.store(false, std::memory_order_release);
                 break;
             }
@@ -203,28 +203,28 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
     // Connection lost - clean up
     close(socket_);
     socket_ = invalid_socket;
-    logger_.logInfo("Client loop ended");
+    LOG_INFO("Client loop ended");
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPClientBase<DerivedT, LoggerT>::handle_server_data(std::vector<uint8_t>& buffer)
+template<typename DerivedT>
+inline void TCPClientBase<DerivedT>::handle_server_data(std::vector<uint8_t>& buffer)
 {
     // Default implementation - derived classes should override this
-    logger_.logDebug("Received {} bytes from server", buffer.size());
+    LOG_DEBUG("Received {} bytes from server", buffer.size());
 }
 
-template<typename DerivedT, typename LoggerT>
-inline bool TCPClientBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_t>& data)
+template<typename DerivedT>
+inline bool TCPClientBase<DerivedT>::send_data(const std::vector<uint8_t>& data)
 {
     if (!connected_.load(std::memory_order_relaxed) || socket_ == invalid_socket)
     {
-        logger_.logWarning("Cannot send data: client not connected");
+        LOG_WARN("Cannot send data: client not connected");
         return false;
     }
 
     if (data.empty())
     {
-        logger_.logWarning("Cannot send empty data");
+        LOG_WARN("Cannot send empty data");
         return false;
     }
 
@@ -245,12 +245,12 @@ inline bool TCPClientBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_
                 continue;
             }
 
-            logger_.logError("Failed to send data: {}", std::strerror(errno));
+            LOG_ERROR("Failed to send data: {}", std::strerror(errno));
 
             // Check if connection is broken
             if (errno == ECONNRESET || errno == EPIPE || errno == ENOTCONN)
             {
-                logger_.logInfo("Connection lost during send, disconnecting");
+                LOG_INFO("Connection lost during send, disconnecting");
                 disconnect();
             }
             return false;
@@ -260,11 +260,11 @@ inline bool TCPClientBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_
         
         if (sent > 0 && total_sent < data_size)
         {
-            logger_.logTrace("Partial send: sent {} bytes, {} remaining", sent, data_size - total_sent);
+            LOG_TRACE("Partial send: sent {} bytes, {} remaining", sent, data_size - total_sent);
         }
     }
 
-    logger_.logTrace("Successfully sent {} bytes to server", total_sent);
+    LOG_TRACE("Successfully sent {} bytes to server", total_sent);
     return true;
 }
 

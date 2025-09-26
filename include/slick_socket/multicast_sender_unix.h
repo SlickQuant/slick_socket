@@ -11,15 +11,15 @@
 namespace slick_socket
 {
 
-template<typename DerivedT, typename LoggerT>
-MulticastSenderBase<DerivedT, LoggerT>::MulticastSenderBase(std::string name, const MulticastSenderConfig& config, LoggerT& logger)
-    : name_(std::move(name)), config_(config), logger_(logger)
+template<typename DerivedT>
+MulticastSenderBase<DerivedT>::MulticastSenderBase(std::string name, const MulticastSenderConfig& config)
+    : name_(std::move(name)), config_(config)
 {
-    logger_.logDebug("MulticastSender {} created with address {}:{}", name_, config_.multicast_address, config_.port);
+    LOG_DEBUG("MulticastSender {} created with address {}:{}", name_, config_.multicast_address, config_.port);
 }
 
-template<typename DerivedT, typename LoggerT>
-MulticastSenderBase<DerivedT, LoggerT>::~MulticastSenderBase()
+template<typename DerivedT>
+MulticastSenderBase<DerivedT>::~MulticastSenderBase()
 {
     if (running_.load(std::memory_order_relaxed))
     {
@@ -27,16 +27,16 @@ MulticastSenderBase<DerivedT, LoggerT>::~MulticastSenderBase()
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastSenderBase<DerivedT, LoggerT>::start()
+template<typename DerivedT>
+bool MulticastSenderBase<DerivedT>::start()
 {
     if (running_.load(std::memory_order_relaxed))
     {
-        logger_.logWarning("{} is already running", name_);
+        LOG_WARN("{} is already running", name_);
         return true;
     }
 
-    logger_.logInfo("Starting {} on {}:{}...", name_, config_.multicast_address, config_.port);
+    LOG_INFO("Starting {} on {}:{}...", name_, config_.multicast_address, config_.port);
 
     if (!initialize_socket())
     {
@@ -50,38 +50,38 @@ bool MulticastSenderBase<DerivedT, LoggerT>::start()
     }
 
     running_.store(true, std::memory_order_relaxed);
-    logger_.logInfo("{} started successfully", name_);
+    LOG_INFO("{} started successfully", name_);
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-void MulticastSenderBase<DerivedT, LoggerT>::stop()
+template<typename DerivedT>
+void MulticastSenderBase<DerivedT>::stop()
 {
     if (!running_.load(std::memory_order_relaxed))
     {
         return;
     }
 
-    logger_.logInfo("Stopping {}...", name_);
+    LOG_INFO("Stopping {}...", name_);
     running_.store(false, std::memory_order_relaxed);
 
     cleanup_socket();
 
-    logger_.logInfo("{} stopped", name_);
+    LOG_INFO("{} stopped", name_);
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastSenderBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_t>& data)
+template<typename DerivedT>
+bool MulticastSenderBase<DerivedT>::send_data(const std::vector<uint8_t>& data)
 {
     if (!running_.load(std::memory_order_relaxed))
     {
-        logger_.logWarning("Cannot send data: {} is not running", name_);
+        LOG_WARN("Cannot send data: {} is not running", name_);
         return false;
     }
 
     if (data.empty())
     {
-        logger_.logWarning("Cannot send empty data");
+        LOG_WARN("Cannot send empty data");
         return false;
     }
 
@@ -93,7 +93,7 @@ bool MulticastSenderBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_t
     int result = inet_pton(AF_INET, config_.multicast_address.c_str(), &dest_addr.sin_addr);
     if (result != 1)
     {
-        logger_.logError("Invalid multicast address: {}", config_.multicast_address);
+        LOG_ERROR("Invalid multicast address: {}", config_.multicast_address);
         send_errors_.fetch_add(1, std::memory_order_relaxed);
         return false;
     }
@@ -109,32 +109,32 @@ bool MulticastSenderBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_t
     if (bytes_sent < 0)
     {
         int error = errno;
-        logger_.logError("Failed to send multicast data. error={} ({})", error, strerror(error));
+        LOG_ERROR("Failed to send multicast data. error={} ({})", error, strerror(error));
         send_errors_.fetch_add(1, std::memory_order_relaxed);
         return false;
     }
 
     if (static_cast<size_t>(bytes_sent) != data.size())
     {
-        logger_.logWarning("Partial send: {} bytes sent out of {}", bytes_sent, data.size());
+        LOG_WARN("Partial send: {} bytes sent out of {}", bytes_sent, data.size());
     }
 
     packets_sent_.fetch_add(1, std::memory_order_relaxed);
     bytes_sent_.fetch_add(static_cast<uint64_t>(bytes_sent), std::memory_order_relaxed);
 
-    logger_.logTrace("Sent {} bytes to multicast group {}:{}", bytes_sent, config_.multicast_address, config_.port);
+    LOG_TRACE("Sent {} bytes to multicast group {}:{}", bytes_sent, config_.multicast_address, config_.port);
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastSenderBase<DerivedT, LoggerT>::initialize_socket()
+template<typename DerivedT>
+bool MulticastSenderBase<DerivedT>::initialize_socket()
 {
     // Create UDP socket
     socket_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_ == invalid_socket)
     {
         int error = errno;
-        logger_.logError("Failed to create socket. error={} ({})", error, strerror(error));
+        LOG_ERROR("Failed to create socket. error={} ({})", error, strerror(error));
         return false;
     }
 
@@ -143,14 +143,14 @@ bool MulticastSenderBase<DerivedT, LoggerT>::initialize_socket()
     if (setsockopt(socket_, SOL_SOCKET, SO_SNDBUF, &buffer_size, sizeof(buffer_size)) < 0)
     {
         int error = errno;
-        logger_.logWarning("Failed to set send buffer size. error={} ({})", error, strerror(error));
+        LOG_WARN("Failed to set send buffer size. error={} ({})", error, strerror(error));
     }
 
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-void MulticastSenderBase<DerivedT, LoggerT>::cleanup_socket()
+template<typename DerivedT>
+void MulticastSenderBase<DerivedT>::cleanup_socket()
 {
     if (socket_ != invalid_socket)
     {
@@ -159,15 +159,15 @@ void MulticastSenderBase<DerivedT, LoggerT>::cleanup_socket()
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastSenderBase<DerivedT, LoggerT>::setup_multicast_options()
+template<typename DerivedT>
+bool MulticastSenderBase<DerivedT>::setup_multicast_options()
 {
     // Set TTL for multicast packets
     int ttl = config_.ttl;
     if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
     {
         int error = errno;
-        logger_.logError("Failed to set multicast TTL. error={} ({})", error, strerror(error));
+        LOG_ERROR("Failed to set multicast TTL. error={} ({})", error, strerror(error));
         return false;
     }
 
@@ -176,7 +176,7 @@ bool MulticastSenderBase<DerivedT, LoggerT>::setup_multicast_options()
     if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_LOOP, &loopback, sizeof(loopback)) < 0)
     {
         int error = errno;
-        logger_.logError("Failed to set multicast loopback. error={} ({})", error, strerror(error));
+        LOG_ERROR("Failed to set multicast loopback. error={} ({})", error, strerror(error));
         return false;
     }
 
@@ -190,13 +190,13 @@ bool MulticastSenderBase<DerivedT, LoggerT>::setup_multicast_options()
             if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_IF, &interface_addr, sizeof(interface_addr)) < 0)
             {
                 int error = errno;
-                logger_.logError("Failed to set multicast interface. error={} ({})", error, strerror(error));
+                LOG_ERROR("Failed to set multicast interface. error={} ({})", error, strerror(error));
                 return false;
             }
         }
         else
         {
-            logger_.logWarning("Invalid interface address: {}, using default", config_.interface_address);
+            LOG_WARN("Invalid interface address: {}, using default", config_.interface_address);
         }
     }
 

@@ -1,12 +1,12 @@
 # slick_socket
 
-A header-only C++23 networking library providing cross-platform TCP and UDP multicast communication.
+A header-only C++20 networking library providing cross-platform TCP and UDP multicast communication.
 
 ## Features
 
 - **Cross-platform**: Windows and Unix/Linux support
 - **Header-only**: No separate compilation required
-- **Modern C++**: C++23 template-based design with CRTP
+- **Modern C++**: C++20 template-based design with CRTP
 - **Asynchronous**: Non-blocking socket operations with timeout handling
 - **TCP Communication**: Client and server implementations
 - **UDP Multicast**: One-to-many communication support
@@ -16,7 +16,7 @@ A header-only C++23 networking library providing cross-platform TCP and UDP mult
 
 ### Prerequisites
 
-- C++23 compatible compiler
+- C++20 compatible compiler
 - CMake 3.20 or higher
 
 ### Building

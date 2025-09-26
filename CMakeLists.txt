@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.25)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(BUILD_VERSION 0.1.0.0)
+set(BUILD_VERSION 1.0.0.0)
 project(slick_socket VERSION ${BUILD_VERSION} LANGUAGES C CXX)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -88,8 +88,8 @@ endif()
 # Automatically run install after build in Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   add_custom_target(dist_slick_socket ALL
-      COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR} --prefix ${CMAKE_BINARY_DIR}/dist
-      COMMENT "Create distribution after release build"
+      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_BINARY_DIR}/dist/include
+      COMMENT "Copying slick_socket headers to dist/include"
       VERBATIM
   )
 

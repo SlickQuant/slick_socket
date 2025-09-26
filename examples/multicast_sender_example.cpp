@@ -1,3 +1,4 @@
+#include "logger.h"
 #include <slick_socket/multicast_sender.h>
 #include <iostream>
 #include <string>

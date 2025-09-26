@@ -1,3 +1,4 @@
+#include "logger.h"
 #include <slick_socket/tcp_server.h>
 #include <iostream>
 #include <string>
@@ -12,12 +13,12 @@ public:
 
     void onClientConnected(int client_id, const std::string& client_address)
     {
-        logger_.logInfo("{} client connected: ID={}, Address={}", name_, client_id, client_address);
+        LOG_INFO("{} client connected: ID={}, Address={}", name_, client_id, client_address);
     }
 
     void onClientDisconnected(int client_id)
     {
-        logger_.logInfo("{} client disconnected: ID={}", name_, client_id);
+        LOG_INFO("{} client disconnected: ID={}", name_, client_id);
     }
 
     void onClientData(int client_id, const uint8_t* data, size_t length)

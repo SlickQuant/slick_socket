@@ -24,11 +24,11 @@ struct MulticastSenderConfig
     int send_buffer_size = 65536; // Socket send buffer size
 };
 
-template<typename DerivedT, typename LoggerT = ConsoleLogger>
+template<typename DerivedT>
 class MulticastSenderBase
 {
 public:
-    explicit MulticastSenderBase(std::string name, const MulticastSenderConfig& config = MulticastSenderConfig(), LoggerT& logger = ConsoleLogger::instance());
+    explicit MulticastSenderBase(std::string name, const MulticastSenderConfig& config = MulticastSenderConfig());
     virtual ~MulticastSenderBase();
 
     // Delete copy operations
@@ -86,7 +86,6 @@ protected:
 
     std::string name_;
     MulticastSenderConfig config_;
-    LoggerT& logger_;
     std::atomic_bool running_{false};
 
     SocketT socket_ = invalid_socket;

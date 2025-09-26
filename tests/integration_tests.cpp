@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include "../examples/logger.h"
 #include <slick_socket/tcp_server.h>
 #include <slick_socket/tcp_client.h>
 #include <thread>

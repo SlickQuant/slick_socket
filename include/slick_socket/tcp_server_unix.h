@@ -18,16 +18,16 @@
 namespace slick_socket
 {
 
-template<typename DerivedT, typename LoggerT>
-inline TCPServerBase<DerivedT, LoggerT>::TCPServerBase(std::string name, const TCPServerConfig& config, LoggerT& logger)
-    : name_(std::move(name)), config_(config), logger_(logger)
+template<typename DerivedT>
+inline TCPServerBase<DerivedT>::TCPServerBase(std::string name, const TCPServerConfig& config)
+    : name_(std::move(name)), config_(config)
 {
     // Ignore SIGPIPE to prevent crashes when writing to closed sockets
     std::signal(SIGPIPE, SIG_IGN);
 }
 
-template<typename DerivedT, typename LoggerT>
-inline TCPServerBase<DerivedT, LoggerT>::~TCPServerBase()
+template<typename DerivedT>
+inline TCPServerBase<DerivedT>::~TCPServerBase()
 {
     stop();
 
@@ -51,20 +51,20 @@ inline TCPServerBase<DerivedT, LoggerT>::~TCPServerBase()
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-inline bool TCPServerBase<DerivedT, LoggerT>::start()
+template<typename DerivedT>
+inline bool TCPServerBase<DerivedT>::start()
 {
     if (running_.load(std::memory_order_relaxed))
     {
         return true;
     }
 
-    logger_.logInfo("Starting {}, lisening on: {}...", name_, config_.port);
+    LOG_INFO("Starting {}, lisening on: {}...", name_, config_.port);
     // Create server socket
     server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket_ < 0)
     {
-        logger_.logError("Failed to create server socket");
+        LOG_ERROR("Failed to create server socket");
         return false;
     }
 
@@ -74,7 +74,7 @@ inline bool TCPServerBase<DerivedT, LoggerT>::start()
         int opt = 1;
         if (setsockopt(server_socket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
         {
-            logger_.logWarning("Failed to set SO_REUSEADDR");
+            LOG_WARN("Failed to set SO_REUSEADDR");
         }
     }
 
@@ -82,7 +82,7 @@ inline bool TCPServerBase<DerivedT, LoggerT>::start()
     int flags = fcntl(server_socket_, F_GETFL, 0);
     if (flags < 0 || fcntl(server_socket_, F_SETFL, flags | O_NONBLOCK) < 0)
     {
-        logger_.logWarning("Failed to make server socket non-blocking");
+        LOG_WARN("Failed to make server socket non-blocking");
     }
 
     // Bind socket
@@ -93,7 +93,7 @@ inline bool TCPServerBase<DerivedT, LoggerT>::start()
 
     if (bind(server_socket_, (sockaddr*)&server_addr, sizeof(server_addr)) < 0)
     {
-        logger_.logError("Failed to bind socket");
+        LOG_ERROR("Failed to bind socket");
         close(server_socket_);
         server_socket_ = -1;
         return false;
@@ -102,7 +102,7 @@ inline bool TCPServerBase<DerivedT, LoggerT>::start()
     // Listen for connections
     if (listen(server_socket_, SOMAXCONN) < 0)
     {
-        logger_.logError("Failed to listen on socket");
+        LOG_ERROR("Failed to listen on socket");
         close(server_socket_);
         server_socket_ = -1;
         return false;
@@ -111,21 +111,21 @@ inline bool TCPServerBase<DerivedT, LoggerT>::start()
     running_.store(true, std::memory_order_release);
 
     // Start single-threaded server loop
-    server_thread_ = std::thread(&TCPServerBase<DerivedT, LoggerT>::server_loop, this);
+    server_thread_ = std::thread(&TCPServerBase<DerivedT>::server_loop, this);
 
-    logger_.logInfo("{} started", name_);
+    LOG_INFO("{} started", name_);
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPServerBase<DerivedT, LoggerT>::stop()
+template<typename DerivedT>
+inline void TCPServerBase<DerivedT>::stop()
 {
     if (!running_.load(std::memory_order_relaxed))
     {
         return;
     }
 
-    logger_.logInfo("Stopping {}...", name_);
+    LOG_INFO("Stopping {}...", name_);
     running_.store(false, std::memory_order_release);
 
     if (server_socket_ >= 0)
@@ -148,11 +148,11 @@ inline void TCPServerBase<DerivedT, LoggerT>::stop()
         server_thread_.join();
     }
 
-    logger_.logInfo("{} stopped", name_);
+    LOG_INFO("{} stopped", name_);
 }
 
-template<typename DerivedT, typename LoggerT>
-inline bool TCPServerBase<DerivedT, LoggerT>::send_data(int client_id, const std::vector<uint8_t>& data)
+template<typename DerivedT>
+inline bool TCPServerBase<DerivedT>::send_data(int client_id, const std::vector<uint8_t>& data)
 {
     auto it = clients_.find(client_id);
     if (it == clients_.end())
@@ -177,12 +177,12 @@ inline bool TCPServerBase<DerivedT, LoggerT>::send_data(int client_id, const std
                 continue;
             }
 
-            logger_.logError("Failed to send data to client {}: {}", client_id, std::strerror(errno));
+            LOG_ERROR("Failed to send data to client {}: {}", client_id, std::strerror(errno));
 
             // Check if connection is broken
             if (errno == ECONNRESET || errno == EPIPE || errno == ENOTCONN)
             {
-                logger_.logInfo("Connection lost during send to client {}, disconnecting", client_id);
+                LOG_INFO("Connection lost during send to client {}, disconnecting", client_id);
                 disconnect_client(client_id);
             }
             return false;
@@ -192,25 +192,25 @@ inline bool TCPServerBase<DerivedT, LoggerT>::send_data(int client_id, const std
         
         if (sent > 0 && total_sent < data_size)
         {
-            logger_.logTrace("Partial send to client {}: sent {} bytes, {} remaining", 
+            LOG_TRACE("Partial send to client {}: sent {} bytes, {} remaining", 
                            client_id, sent, data_size - total_sent);
         }
     }
 
-    logger_.logTrace("Successfully sent {} bytes to client {}", total_sent, client_id);
+    LOG_TRACE("Successfully sent {} bytes to client {}", total_sent, client_id);
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPServerBase<DerivedT, LoggerT>::close_socket(SocketT socket)
+template<typename DerivedT>
+inline void TCPServerBase<DerivedT>::close_socket(SocketT socket)
 {
     epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, socket, nullptr);
     socket_to_client_id_.erase(socket);
     close(socket);
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPServerBase<DerivedT, LoggerT>::disconnect_client(int client_id)
+template<typename DerivedT>
+inline void TCPServerBase<DerivedT>::disconnect_client(int client_id)
 {
     auto it = clients_.find(client_id);
     if (it != clients_.end())
@@ -220,8 +220,8 @@ inline void TCPServerBase<DerivedT, LoggerT>::disconnect_client(int client_id)
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-void TCPServerBase<DerivedT, LoggerT>::server_loop()
+template<typename DerivedT>
+void TCPServerBase<DerivedT>::server_loop()
 {
     // Set CPU affinity if specified
     if (config_.cpu_affinity >= 0)
@@ -234,12 +234,12 @@ void TCPServerBase<DerivedT, LoggerT>::server_loop()
         int result = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
         if (result != 0)
         {
-            logger_.logWarning("Failed to set CPU affinity to core {}: {}", 
+            LOG_WARN("Failed to set CPU affinity to core {}: {}", 
                              config_.cpu_affinity, std::strerror(result));
         }
         else
         {
-            logger_.logInfo("Server thread pinned to CPU core {}", config_.cpu_affinity);
+            LOG_INFO("Server thread pinned to CPU core {}", config_.cpu_affinity);
         }
     }
 
@@ -247,7 +247,7 @@ void TCPServerBase<DerivedT, LoggerT>::server_loop()
     epoll_fd_ = epoll_create1(0);
     if (epoll_fd_ < 0)
     {
-        logger_.logError("Failed to create epoll instance: {}", std::strerror(errno));
+        LOG_ERROR("Failed to create epoll instance: {}", std::strerror(errno));
         return;
     }
 
@@ -257,7 +257,7 @@ void TCPServerBase<DerivedT, LoggerT>::server_loop()
     ev.data.fd = server_socket_;
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, server_socket_, &ev) < 0)
     {
-        logger_.logError("Failed to add server socket to epoll: {}", std::strerror(errno));
+        LOG_ERROR("Failed to add server socket to epoll: {}", std::strerror(errno));
         close(epoll_fd_);
         epoll_fd_ = -1;
         return;
@@ -277,7 +277,7 @@ void TCPServerBase<DerivedT, LoggerT>::server_loop()
             {
                 continue;
             }
-            logger_.logError("epoll_wait failed: {}", std::strerror(errno));
+            LOG_ERROR("epoll_wait failed: {}", std::strerror(errno));
             break;
         }
 
@@ -307,8 +307,8 @@ void TCPServerBase<DerivedT, LoggerT>::server_loop()
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-void TCPServerBase<DerivedT, LoggerT>::accept_new_client()
+template<typename DerivedT>
+void TCPServerBase<DerivedT>::accept_new_client()
 {
     sockaddr_in client_addr{};
     socklen_t addr_len = sizeof(client_addr);
@@ -318,7 +318,7 @@ void TCPServerBase<DerivedT, LoggerT>::accept_new_client()
     {
         if (errno != EAGAIN && errno != EWOULDBLOCK)
         {
-            logger_.logError("Failed to accept client");
+            LOG_ERROR("Failed to accept client");
         }
         return;
     }
@@ -336,7 +336,7 @@ void TCPServerBase<DerivedT, LoggerT>::accept_new_client()
     ev.data.fd = client_socket;
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_socket, &ev) < 0)
     {
-        logger_.logError("Failed to add client socket to epoll: {}", std::strerror(errno));
+        LOG_ERROR("Failed to add client socket to epoll: {}", std::strerror(errno));
         close(client_socket);
         return;
     }
@@ -356,8 +356,8 @@ void TCPServerBase<DerivedT, LoggerT>::accept_new_client()
     derived().onClientConnected(client_id, client_address);
 }
 
-template<typename DerivedT, typename LoggerT>
-void TCPServerBase<DerivedT, LoggerT>::handle_client_data(int client_id, std::vector<uint8_t>& buffer)
+template<typename DerivedT>
+void TCPServerBase<DerivedT>::handle_client_data(int client_id, std::vector<uint8_t>& buffer)
 {
     auto it = clients_.find(client_id);
     if (it == clients_.end())
@@ -386,7 +386,7 @@ void TCPServerBase<DerivedT, LoggerT>::handle_client_data(int client_id, std::ve
         // Error
         if (errno != EAGAIN && errno != EWOULDBLOCK)
         {
-            logger_.logError("Receive error for client ID={}", client_id);
+            LOG_ERROR("Receive error for client ID={}", client_id);
             close_socket(socket);
             clients_.erase(it);
             derived().onClientDisconnected(client_id);

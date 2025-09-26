@@ -8,7 +8,7 @@
 #include <chrono>
 #include <unordered_map>
 #include <string>
-#include "logger.h"
+#include <slick_socket/logger.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
@@ -27,11 +27,11 @@ struct TCPServerConfig
     int cpu_affinity = -1;  // -1 means no affinity, otherwise specify CPU core index
 };
 
-template<typename DerivedT, typename LoggerT = ConsoleLogger>
+template<typename DerivedT>
 class TCPServerBase
 {
 public:
-    explicit TCPServerBase(std::string name, const TCPServerConfig& config = TCPServerConfig(), LoggerT& logger = ConsoleLogger::instance());
+    explicit TCPServerBase(std::string name, const TCPServerConfig& config = TCPServerConfig());
     virtual ~TCPServerBase();
 
     // Delete copy operations
@@ -95,7 +95,6 @@ protected:
 
     std::string name_;
     TCPServerConfig config_;
-    LoggerT& logger_;
     std::atomic_bool running_{false};
 
     std::thread server_thread_;

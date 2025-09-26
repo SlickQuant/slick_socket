@@ -12,15 +12,15 @@
 namespace slick_socket
 {
 
-template<typename DerivedT, typename LoggerT>
-MulticastReceiverBase<DerivedT, LoggerT>::MulticastReceiverBase(std::string name, const MulticastReceiverConfig& config, LoggerT& logger)
-    : name_(std::move(name)), config_(config), logger_(logger)
+template<typename DerivedT>
+MulticastReceiverBase<DerivedT>::MulticastReceiverBase(std::string name, const MulticastReceiverConfig& config)
+    : name_(std::move(name)), config_(config)
 {
-    logger_.logDebug("MulticastReceiver {} created for group {}:{}", name_, config_.multicast_address, config_.port);
+    LOG_DEBUG("MulticastReceiver {} created for group {}:{}", name_, config_.multicast_address, config_.port);
 }
 
-template<typename DerivedT, typename LoggerT>
-MulticastReceiverBase<DerivedT, LoggerT>::~MulticastReceiverBase()
+template<typename DerivedT>
+MulticastReceiverBase<DerivedT>::~MulticastReceiverBase()
 {
     if (running_.load(std::memory_order_relaxed))
     {
@@ -28,16 +28,16 @@ MulticastReceiverBase<DerivedT, LoggerT>::~MulticastReceiverBase()
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastReceiverBase<DerivedT, LoggerT>::start()
+template<typename DerivedT>
+bool MulticastReceiverBase<DerivedT>::start()
 {
     if (running_.load(std::memory_order_relaxed))
     {
-        logger_.logWarning("{} is already running", name_);
+        LOG_WARN("{} is already running", name_);
         return true;
     }
 
-    logger_.logInfo("Starting {} for group {}:{}...", name_, config_.multicast_address, config_.port);
+    LOG_INFO("Starting {} for group {}:{}...", name_, config_.multicast_address, config_.port);
 
     if (!initialize_socket())
     {
@@ -61,19 +61,19 @@ bool MulticastReceiverBase<DerivedT, LoggerT>::start()
     // Start receiver thread
     receiver_thread_ = std::thread(&MulticastReceiverBase::receiver_loop, this);
 
-    logger_.logInfo("{} started successfully", name_);
+    LOG_INFO("{} started successfully", name_);
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-void MulticastReceiverBase<DerivedT, LoggerT>::stop()
+template<typename DerivedT>
+void MulticastReceiverBase<DerivedT>::stop()
 {
     if (!running_.load(std::memory_order_relaxed))
     {
         return;
     }
 
-    logger_.logInfo("Stopping {}...", name_);
+    LOG_INFO("Stopping {}...", name_);
     running_.store(false, std::memory_order_relaxed);
 
     // Wait for receiver thread to finish
@@ -85,17 +85,17 @@ void MulticastReceiverBase<DerivedT, LoggerT>::stop()
     leave_multicast_group();
     cleanup_socket();
 
-    logger_.logInfo("{} stopped", name_);
+    LOG_INFO("{} stopped", name_);
 }
 
-template<typename DerivedT, typename LoggerT>
-void MulticastReceiverBase<DerivedT, LoggerT>::receiver_loop()
+template<typename DerivedT>
+void MulticastReceiverBase<DerivedT>::receiver_loop()
 {
     std::vector<uint8_t> buffer(config_.receive_buffer_size);
     sockaddr_in sender_addr{};
     socklen_t sender_addr_len = sizeof(sender_addr);
 
-    logger_.logDebug("Receiver loop started for {}", name_);
+    LOG_DEBUG("Receiver loop started for {}", name_);
 
     while (running_.load(std::memory_order_relaxed))
     {
@@ -106,7 +106,7 @@ void MulticastReceiverBase<DerivedT, LoggerT>::receiver_loop()
         
         if (setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
         {
-            logger_.logWarning("Failed to set receive timeout");
+            LOG_WARN("Failed to set receive timeout");
         }
 
         ssize_t bytes_received = recvfrom(socket_, 
@@ -126,7 +126,7 @@ void MulticastReceiverBase<DerivedT, LoggerT>::receiver_loop()
             }
             else if (running_.load(std::memory_order_relaxed))
             {
-                logger_.logError("Failed to receive multicast data. error={} ({})", error, strerror(error));
+                LOG_ERROR("Failed to receive multicast data. error={} ({})", error, strerror(error));
                 receive_errors_.fetch_add(1, std::memory_order_relaxed);
             }
             continue;
@@ -142,7 +142,7 @@ void MulticastReceiverBase<DerivedT, LoggerT>::receiver_loop()
             inet_ntop(AF_INET, &sender_addr.sin_addr, sender_ip, INET_ADDRSTRLEN);
             std::string sender_address = sender_ip;
 
-            logger_.logTrace("Received {} bytes from {}", bytes_received, sender_address);
+            LOG_TRACE("Received {} bytes from {}", bytes_received, sender_address);
 
             // Resize buffer to actual data size and call handler
             buffer.resize(static_cast<size_t>(bytes_received));
@@ -151,25 +151,25 @@ void MulticastReceiverBase<DerivedT, LoggerT>::receiver_loop()
         }
     }
 
-    logger_.logDebug("Receiver loop ended for {}", name_);
+    LOG_DEBUG("Receiver loop ended for {}", name_);
 }
 
-template<typename DerivedT, typename LoggerT>
-void MulticastReceiverBase<DerivedT, LoggerT>::handle_multicast_data(const std::vector<uint8_t>& data, const std::string& sender_address)
+template<typename DerivedT>
+void MulticastReceiverBase<DerivedT>::handle_multicast_data(const std::vector<uint8_t>& data, const std::string& sender_address)
 {
     // Default implementation - derived classes should override this
-    logger_.logTrace("Received {} bytes from {} (no handler implemented)", data.size(), sender_address);
+    LOG_TRACE("Received {} bytes from {} (no handler implemented)", data.size(), sender_address);
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastReceiverBase<DerivedT, LoggerT>::initialize_socket()
+template<typename DerivedT>
+bool MulticastReceiverBase<DerivedT>::initialize_socket()
 {
     // Create UDP socket
     socket_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_ == invalid_socket)
     {
         int error = errno;
-        logger_.logError("Failed to create socket. error={} ({})", error, strerror(error));
+        LOG_ERROR("Failed to create socket. error={} ({})", error, strerror(error));
         return false;
     }
 
@@ -178,14 +178,14 @@ bool MulticastReceiverBase<DerivedT, LoggerT>::initialize_socket()
     if (setsockopt(socket_, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size)) < 0)
     {
         int error = errno;
-        logger_.logWarning("Failed to set receive buffer size. error={} ({})", error, strerror(error));
+        LOG_WARN("Failed to set receive buffer size. error={} ({})", error, strerror(error));
     }
 
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-void MulticastReceiverBase<DerivedT, LoggerT>::cleanup_socket()
+template<typename DerivedT>
+void MulticastReceiverBase<DerivedT>::cleanup_socket()
 {
     if (socket_ != invalid_socket)
     {
@@ -194,8 +194,8 @@ void MulticastReceiverBase<DerivedT, LoggerT>::cleanup_socket()
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastReceiverBase<DerivedT, LoggerT>::setup_multicast_options()
+template<typename DerivedT>
+bool MulticastReceiverBase<DerivedT>::setup_multicast_options()
 {
     // Enable address reuse
     if (config_.reuse_address)
@@ -204,7 +204,7 @@ bool MulticastReceiverBase<DerivedT, LoggerT>::setup_multicast_options()
         if (setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
         {
             int error = errno;
-            logger_.logWarning("Failed to set address reuse. error={} ({})", error, strerror(error));
+            LOG_WARN("Failed to set address reuse. error={} ({})", error, strerror(error));
         }
     }
 
@@ -217,15 +217,15 @@ bool MulticastReceiverBase<DerivedT, LoggerT>::setup_multicast_options()
     if (bind(socket_, reinterpret_cast<const sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0)
     {
         int error = errno;
-        logger_.logError("Failed to bind socket to port {}. error={} ({})", config_.port, error, strerror(error));
+        LOG_ERROR("Failed to bind socket to port {}. error={} ({})", config_.port, error, strerror(error));
         return false;
     }
 
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-bool MulticastReceiverBase<DerivedT, LoggerT>::join_multicast_group()
+template<typename DerivedT>
+bool MulticastReceiverBase<DerivedT>::join_multicast_group()
 {
     ip_mreq mreq{};
     
@@ -233,7 +233,7 @@ bool MulticastReceiverBase<DerivedT, LoggerT>::join_multicast_group()
     int result = inet_pton(AF_INET, config_.multicast_address.c_str(), &mreq.imr_multiaddr);
     if (result != 1)
     {
-        logger_.logError("Invalid multicast address: {}", config_.multicast_address);
+        LOG_ERROR("Invalid multicast address: {}", config_.multicast_address);
         return false;
     }
 
@@ -247,7 +247,7 @@ bool MulticastReceiverBase<DerivedT, LoggerT>::join_multicast_group()
         result = inet_pton(AF_INET, config_.interface_address.c_str(), &mreq.imr_interface);
         if (result != 1)
         {
-            logger_.logWarning("Invalid interface address: {}, using any interface", config_.interface_address);
+            LOG_WARN("Invalid interface address: {}, using any interface", config_.interface_address);
             mreq.imr_interface.s_addr = INADDR_ANY;
         }
     }
@@ -256,16 +256,16 @@ bool MulticastReceiverBase<DerivedT, LoggerT>::join_multicast_group()
     if (setsockopt(socket_, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
     {
         int error = errno;
-        logger_.logError("Failed to join multicast group {}. error={} ({})", config_.multicast_address, error, strerror(error));
+        LOG_ERROR("Failed to join multicast group {}. error={} ({})", config_.multicast_address, error, strerror(error));
         return false;
     }
 
-    logger_.logDebug("Joined multicast group {}", config_.multicast_address);
+    LOG_DEBUG("Joined multicast group {}", config_.multicast_address);
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-void MulticastReceiverBase<DerivedT, LoggerT>::leave_multicast_group()
+template<typename DerivedT>
+void MulticastReceiverBase<DerivedT>::leave_multicast_group()
 {
     if (socket_ == invalid_socket)
         return;
@@ -290,11 +290,11 @@ void MulticastReceiverBase<DerivedT, LoggerT>::leave_multicast_group()
         if (setsockopt(socket_, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
         {
             int error = errno;
-            logger_.logWarning("Failed to leave multicast group {}. error={} ({})", config_.multicast_address, error, strerror(error));
+            LOG_WARN("Failed to leave multicast group {}. error={} ({})", config_.multicast_address, error, strerror(error));
         }
         else
         {
-            logger_.logDebug("Left multicast group {}", config_.multicast_address);
+            LOG_DEBUG("Left multicast group {}", config_.multicast_address);
         }
     }
 }

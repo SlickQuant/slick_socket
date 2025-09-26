@@ -10,9 +10,9 @@
 namespace slick_socket
 {
 
-template<typename DerivedT, typename LoggerT>
-inline TCPClientBase<DerivedT, LoggerT>::TCPClientBase(std::string name, const TCPClientConfig& config, LoggerT& logger)
-    : name_(std::move(name)), config_(config), logger_(logger)
+template<typename DerivedT>
+inline TCPClientBase<DerivedT>::TCPClientBase(std::string name, const TCPClientConfig& config)
+    : name_(std::move(name)), config_(config)
 {
     WSADATA wsa_data;
     int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
@@ -22,15 +22,15 @@ inline TCPClientBase<DerivedT, LoggerT>::TCPClientBase(std::string name, const T
     }
 }
 
-template<typename DerivedT, typename LoggerT>
-inline TCPClientBase<DerivedT, LoggerT>::~TCPClientBase()
+template<typename DerivedT>
+inline TCPClientBase<DerivedT>::~TCPClientBase()
 {
     disconnect();
     WSACleanup();
 }
 
-template<typename DerivedT, typename LoggerT>
-inline bool TCPClientBase<DerivedT, LoggerT>::connect()
+template<typename DerivedT>
+inline bool TCPClientBase<DerivedT>::connect()
 {
     if (connected_.load(std::memory_order_relaxed))
     {
@@ -41,7 +41,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_ == invalid_socket)
     {
-        logger_.logError("Failed to create socket");
+        LOG_ERROR("Failed to create socket");
         return false;
     }
 
@@ -49,7 +49,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     u_long mode = 1; // non-blocking mode
     if (ioctlsocket(socket_, FIONBIO, &mode) != 0)
     {
-        logger_.logWarning("Failed to make socket non-blocking");
+        LOG_WARN("Failed to make socket non-blocking");
         closesocket(socket_);
         socket_ = invalid_socket;
         return false;
@@ -63,13 +63,13 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     // Resolve server address
     if (inet_pton(AF_INET, config_.server_address.c_str(), &server_addr.sin_addr) != 1)
     {
-        logger_.logError("Failed to resolve server address: {}", config_.server_address);
+        LOG_ERROR("Failed to resolve server address: {}", config_.server_address);
         closesocket(socket_);
         socket_ = invalid_socket;
         return false;
     }
 
-    logger_.logInfo("{} attempting to connect to {}:{}", name_, config_.server_address, config_.server_port);
+    LOG_INFO("{} attempting to connect to {}:{}", name_, config_.server_address, config_.server_port);
 
     // Attempt to connect (non-blocking)
     int result = ::connect(socket_, (sockaddr*)&server_addr, sizeof(server_addr));
@@ -78,7 +78,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
         int error = WSAGetLastError();
         if (error != WSAEWOULDBLOCK && error != WSAEINPROGRESS)
         {
-            logger_.logWarning("Failed to connect to server: error {}", error);
+            LOG_WARN("Failed to connect to server: error {}", error);
             closesocket(socket_);
             socket_ = invalid_socket;
             return false;
@@ -97,7 +97,7 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     result = select(static_cast<int>(socket_) + 1, nullptr, &write_fds, nullptr, &timeout);
     if (result <= 0)
     {
-        logger_.logWarning("Connection timeout or failed");
+        LOG_WARN("Connection timeout or failed");
         closesocket(socket_);
         socket_ = invalid_socket;
         return false;
@@ -110,15 +110,15 @@ inline bool TCPClientBase<DerivedT, LoggerT>::connect()
     return true;
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPClientBase<DerivedT, LoggerT>::disconnect()
+template<typename DerivedT>
+inline void TCPClientBase<DerivedT>::disconnect()
 {
     if (!connected_.load(std::memory_order_relaxed))
     {
         return;
     }
 
-    logger_.logInfo("Disconnecting from {}:{}...", config_.server_address, config_.server_port);
+    LOG_INFO("Disconnecting from {}:{}...", config_.server_address, config_.server_port);
     connected_.store(false, std::memory_order_release);
 
     // Close socket if open
@@ -134,13 +134,13 @@ inline void TCPClientBase<DerivedT, LoggerT>::disconnect()
         client_thread_.join();
     }
 
-    logger_.logInfo("Disconnected");
+    LOG_INFO("Disconnected");
 }
 
-template<typename DerivedT, typename LoggerT>
-inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
+template<typename DerivedT>
+inline void TCPClientBase<DerivedT>::client_loop()
 {
-    logger_.logDebug("Client loop started");
+    LOG_DEBUG("Client loop started");
 
     // Set CPU affinity if specified
     if (config_.cpu_affinity >= 0)
@@ -150,12 +150,12 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
         DWORD_PTR result = SetThreadAffinityMask(thread, mask);
         if (result == 0)
         {
-            logger_.logWarning("Failed to set CPU affinity to core {}: error {}", 
+            LOG_WARN("Failed to set CPU affinity to core {}: error {}", 
                              config_.cpu_affinity, GetLastError());
         }
         else
         {
-            logger_.logInfo("Client thread pinned to CPU core {}", config_.cpu_affinity);
+            LOG_INFO("Client thread pinned to CPU core {}", config_.cpu_affinity);
         }
     }
 
@@ -175,7 +175,7 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
         else if (received == 0)
         {
             // Server closed connection
-            logger_.logInfo("Server closed connection");
+            LOG_INFO("Server closed connection");
             connected_.store(false, std::memory_order_release);
             break;
         }
@@ -185,7 +185,7 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
             int error = WSAGetLastError();
             if (error != WSAEWOULDBLOCK && error != WSAEINPROGRESS)
             {
-                logger_.logError("Receive error: {}", error);
+                LOG_ERROR("Receive error: {}", error);
                 connected_.store(false, std::memory_order_release);
                 break;
             }
@@ -198,21 +198,21 @@ inline void TCPClientBase<DerivedT, LoggerT>::client_loop()
     // Connection lost - clean up
     closesocket(socket_);
     socket_ = invalid_socket;
-    logger_.logDebug("Client loop ended");
+    LOG_DEBUG("Client loop ended");
 }
 
-template<typename DerivedT, typename LoggerT>
-inline bool TCPClientBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_t>& data)
+template<typename DerivedT>
+inline bool TCPClientBase<DerivedT>::send_data(const std::vector<uint8_t>& data)
 {
     if (!connected_.load(std::memory_order_relaxed) || socket_ == invalid_socket)
     {
-        logger_.logWarning("Cannot send data: client not connected");
+        LOG_WARN("Cannot send data: client not connected");
         return false;
     }
 
     if (data.empty())
     {
-        logger_.logWarning("Cannot send empty data");
+        LOG_WARN("Cannot send empty data");
         return false;
     }
 
@@ -235,12 +235,12 @@ inline bool TCPClientBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_
                 continue;
             }
 
-            logger_.logError("Failed to send data: error {}", error);
+            LOG_ERROR("Failed to send data: error {}", error);
 
             // Check if connection is broken
             if (error == WSAECONNRESET || error == WSAECONNABORTED || error == WSAENOTCONN)
             {
-                logger_.logInfo("Connection lost during send, disconnecting");
+                LOG_INFO("Connection lost during send, disconnecting");
                 disconnect();
             }
             return false;
@@ -250,11 +250,11 @@ inline bool TCPClientBase<DerivedT, LoggerT>::send_data(const std::vector<uint8_
         
         if (sent > 0 && total_sent < data_size)
         {
-            logger_.logTrace("Partial send: sent {} bytes, {} remaining", sent, data_size - total_sent);
+            LOG_TRACE("Partial send: sent {} bytes, {} remaining", sent, data_size - total_sent);
         }
     }
 
-    logger_.logTrace("Successfully sent {} bytes to server", total_sent);
+    LOG_TRACE("Successfully sent {} bytes to server", total_sent);
     return true;
 }
 

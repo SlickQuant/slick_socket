@@ -1,6 +1,6 @@
 #pragma once
 
-#include "logger.h"
+#include <slick_socket/logger.h>
 #include <vector>
 #include <string>
 #include <chrono>
@@ -25,11 +25,11 @@ struct MulticastReceiverConfig
     std::chrono::milliseconds receive_timeout{1000}; // Timeout for receive operations
 };
 
-template<typename DerivedT, typename LoggerT = ConsoleLogger>
+template<typename DerivedT>
 class MulticastReceiverBase
 {
 public:
-    explicit MulticastReceiverBase(std::string name, const MulticastReceiverConfig& config = MulticastReceiverConfig(), LoggerT& logger = ConsoleLogger::instance());
+    explicit MulticastReceiverBase(std::string name, const MulticastReceiverConfig& config = MulticastReceiverConfig());
     virtual ~MulticastReceiverBase();
 
     // Delete copy operations
@@ -83,7 +83,6 @@ protected:
 
     std::string name_;
     MulticastReceiverConfig config_;
-    LoggerT& logger_;
     std::atomic_bool running_{false};
 
     SocketT socket_ = invalid_socket;

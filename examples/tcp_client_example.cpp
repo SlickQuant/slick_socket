@@ -1,3 +1,4 @@
+#include "logger.h"
 #include <slick_socket/tcp_client.h>
 #include <iostream>
 #include <string>
@@ -18,12 +19,12 @@ public:
 
     void onConnected()
     {
-        logger_.logInfo("Successfully connected to server");
+        LOG_INFO("Successfully connected to server");
     }
 
     void onDisconnected()
     {
-        logger_.logInfo("Successfully disconnected from server");
+        LOG_INFO("Successfully disconnected from server");
     }
 
     void onData(const uint8_t* data, size_t length)
