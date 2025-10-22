@@ -283,13 +283,18 @@ void TCPServerBase<DerivedT>::server_loop()
     struct kevent events[MAX_EVENTS];
     std::vector<uint8_t> buffer(config_.receive_buffer_size);
 
+    // Set timeout to 1us to allow checking running_ flag
+    struct timespec timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_nsec = 1000; // 1us
+
+    if (config_.cpu_affinity < 0)
+    {
+        timeout.tv_nsec = 1000000;  // 1ms
+    }
+
     while (running_.load())
     {
-        // Set timeout to 1us to allow checking running_ flag
-        struct timespec timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_nsec = 1000; // 1us
-
         int num_events = kevent(epoll_fd_, nullptr, 0, events, MAX_EVENTS, &timeout);
         if (num_events < 0)
         {
@@ -351,18 +356,20 @@ void TCPServerBase<DerivedT>::server_loop()
     struct epoll_event events[MAX_EVENTS];
     std::vector<uint8_t> buffer(config_.receive_buffer_size);
 
+    int timeout = 0;
+    if (config_.cpu_affinity < 0)
+    {
+        // CPU isn't pinned wait for 1 ms
+        timeout = 1;
+    }
+
     while (running_.load())
     {
-        int num_events = epoll_wait(epoll_fd_, events, MAX_EVENTS, 0);
+        int num_events = epoll_wait(epoll_fd_, events, MAX_EVENTS, timeout);
         if (num_events < 0)
         {
             if (errno == EINTR)
             {
-                if (config_.cpu_affinity < 0)
-                {
-                    // CPU isn't spinning
-                    std::this_thread::yield();
-                }
                 continue;
             }
             LOG_ERROR("epoll_wait failed: {}", std::strerror(errno));
