@@ -146,17 +146,18 @@ inline void TCPClientBase<DerivedT>::client_loop()
     LOG_INFO("Client loop started");
 
     // Set CPU affinity if specified
+#ifndef __APPLE__
     if (config_.cpu_affinity >= 0)
     {
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(config_.cpu_affinity, &cpuset);
-        
+
         pthread_t thread = pthread_self();
         int result = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
         if (result != 0)
         {
-            LOG_WARN("Failed to set CPU affinity to core {}: {}", 
+            LOG_WARN("Failed to set CPU affinity to core {}: {}",
                              config_.cpu_affinity, std::strerror(result));
         }
         else
@@ -164,6 +165,12 @@ inline void TCPClientBase<DerivedT>::client_loop()
             LOG_INFO("Client thread pinned to CPU core {}", config_.cpu_affinity);
         }
     }
+#else
+    if (config_.cpu_affinity >= 0)
+    {
+        LOG_WARN("CPU affinity not supported on macOS");
+    }
+#endif
 
     // Connection established - handle server communication
     std::vector<uint8_t> buffer(config_.receive_buffer_size);
