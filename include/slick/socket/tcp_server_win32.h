@@ -273,9 +273,7 @@ void TCPServerBase<DrivedT>::server_loop()
 
     while (running_.load(std::memory_order_relaxed))
     {
-        // Wait for events with 1 second timeout
-        int num_events = epoll_wait(epoll_fd_, events, MAX_EVENTS, 1000);
-        
+        int num_events = epoll_wait(epoll_fd_, events, MAX_EVENTS, 0);
         if (num_events < 0)
         {
             if (errno == EINTR)
