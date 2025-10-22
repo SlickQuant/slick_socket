@@ -358,6 +358,11 @@ void TCPServerBase<DerivedT>::server_loop()
         {
             if (errno == EINTR)
             {
+                if (config_.cpu_affinity < 0)
+                {
+                    // CPU isn't spinning
+                    std::this_thread::yield();
+                }
                 continue;
             }
             LOG_ERROR("epoll_wait failed: {}", std::strerror(errno));
