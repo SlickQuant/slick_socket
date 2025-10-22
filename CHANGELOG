@@ -4,6 +4,8 @@
 - Add GitHub CI workflow
 - Fix MacOS build
 - Fix example log macros doesn't work without format args
+- Added socket binding (lines 165-176) - Bind to a local address before setting multicast options. This is required on some platforms like macOS for multicast senders.
+- Fixed setsockopt calls (lines 180, 189, 203) - Changed from passing raw pointer to using reinterpret_cast<const char*>(&value). While this is technically the same thing, it's more explicit about the expected type.
 
 #1.0.0.0 - [09/26/2025]
 - Initial Release

@@ -162,9 +162,22 @@ void MulticastSenderBase<DerivedT>::cleanup_socket()
 template<typename DerivedT>
 bool MulticastSenderBase<DerivedT>::setup_multicast_options()
 {
+    // Bind to local address for sending (required on some platforms like macOS)
+    sockaddr_in local_addr{};
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_port = 0; // Let OS choose ephemeral port
+    local_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(socket_, reinterpret_cast<const sockaddr*>(&local_addr), sizeof(local_addr)) < 0)
+    {
+        int error = errno;
+        LOG_WARN("Failed to bind socket to local address. error={} ({})", error, strerror(error));
+        // Don't fail on this, as it might work without binding
+    }
+
     // Set TTL for multicast packets
     int ttl = config_.ttl;
-    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
+    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<const char*>(&ttl), sizeof(ttl)) < 0)
     {
         int error = errno;
         LOG_ERROR("Failed to set multicast TTL. error={} ({})", error, strerror(error));
@@ -173,7 +186,7 @@ bool MulticastSenderBase<DerivedT>::setup_multicast_options()
 
     // Set multicast loopback
     int loopback = config_.enable_loopback ? 1 : 0;
-    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_LOOP, &loopback, sizeof(loopback)) < 0)
+    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_LOOP, reinterpret_cast<const char*>(&loopback), sizeof(loopback)) < 0)
     {
         int error = errno;
         LOG_ERROR("Failed to set multicast loopback. error={} ({})", error, strerror(error));
@@ -187,7 +200,7 @@ bool MulticastSenderBase<DerivedT>::setup_multicast_options()
         int result = inet_pton(AF_INET, config_.interface_address.c_str(), &interface_addr);
         if (result == 1)
         {
-            if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_IF, &interface_addr, sizeof(interface_addr)) < 0)
+            if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_IF, reinterpret_cast<const char*>(&interface_addr), sizeof(interface_addr)) < 0)
             {
                 int error = errno;
                 LOG_ERROR("Failed to set multicast interface. error={} ({})", error, strerror(error));

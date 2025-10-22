@@ -222,3 +222,5 @@ This design uses CRTP (Curiously Recurring Template Pattern) for compile-time po
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Made with ⚡ by [SlickQuant](https://github.com/SlickQuant)**
