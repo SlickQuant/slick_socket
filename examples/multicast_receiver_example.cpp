@@ -1,16 +1,16 @@
 #include "logger.h"
-#include <slick_socket/multicast_receiver.h>
+#include <slick/socket/multicast_receiver.h>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <chrono>
 #include <atomic>
 
-class MulticastReceiver : public slick_socket::MulticastReceiverBase<MulticastReceiver>
+class MulticastReceiver : public slick::socket::MulticastReceiverBase<MulticastReceiver>
 {
 public:
-    MulticastReceiver(const slick_socket::MulticastReceiverConfig& config)
-        : slick_socket::MulticastReceiverBase<MulticastReceiver>("MulticastReceiver", config)
+    MulticastReceiver(const slick::socket::MulticastReceiverConfig& config)
+        : slick::socket::MulticastReceiverBase<MulticastReceiver>("MulticastReceiver", config)
     {
     }
 
@@ -28,7 +28,7 @@ public:
 
 int main()
 {
-    slick_socket::MulticastReceiverConfig config;
+    slick::socket::MulticastReceiverConfig config;
     config.multicast_address = "224.0.0.100"; // Same as sender example
     config.port = 12345;
     config.reuse_address = true; // Allow multiple receivers

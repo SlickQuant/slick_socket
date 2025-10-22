@@ -1,13 +1,13 @@
 #include <gtest/gtest.h>
-#include <slick_socket/tcp_client.h>
+#include <slick/socket/tcp_client.h>
 #include <thread>
 #include <chrono>
 #include <atomic>
 
-class TestClient : public slick_socket::TCPClientBase<TestClient>
+class TestClient : public slick::socket::TCPClientBase<TestClient>
 {
 public:
-    using slick_socket::TCPClientBase<TestClient>::TCPClientBase;
+    using slick::socket::TCPClientBase<TestClient>::TCPClientBase;
     
     void onConnected() {
         connected_count++;
@@ -43,7 +43,7 @@ protected:
         }
     }
 
-    slick_socket::TCPClientConfig config_;
+    slick::socket::TCPClientConfig config_;
     std::unique_ptr<TestClient> client_;
 };
 
@@ -79,7 +79,7 @@ TEST_F(TCPClientTest, ClientDisconnection) {
 
 TEST_F(TCPClientTest, ClientConfigurationValidation) {
     // Test valid configuration
-    slick_socket::TCPClientConfig valid_config;
+    slick::socket::TCPClientConfig valid_config;
     valid_config.server_address = "192.168.1.1";
     valid_config.server_port = 8080;
     valid_config.receive_buffer_size = 8192;

@@ -1,17 +1,17 @@
 #include <gtest/gtest.h>
 #include "../examples/logger.h"
-#include <slick_socket/tcp_server.h>
-#include <slick_socket/tcp_client.h>
+#include <slick/socket/tcp_server.h>
+#include <slick/socket/tcp_client.h>
 #include <thread>
 #include <chrono>
 #include <atomic>
 
-class IntegrationTestServer : public slick_socket::TCPServerBase<IntegrationTestServer>
+class IntegrationTestServer : public slick::socket::TCPServerBase<IntegrationTestServer>
 {
 public:
-    using slick_socket::TCPServerBase<IntegrationTestServer>::TCPServerBase;
-    using slick_socket::TCPServerBase<IntegrationTestServer>::get_connected_client_count;
-    using slick_socket::TCPServerBase<IntegrationTestServer>::send_data;
+    using slick::socket::TCPServerBase<IntegrationTestServer>::TCPServerBase;
+    using slick::socket::TCPServerBase<IntegrationTestServer>::get_connected_client_count;
+    using slick::socket::TCPServerBase<IntegrationTestServer>::send_data;
     
     void onClientConnected(int client_id, const std::string& client_address) {
         connected_clients++;
@@ -42,10 +42,10 @@ public:
     std::string last_received_data;
 };
 
-class IntegrationTestClient : public slick_socket::TCPClientBase<IntegrationTestClient>
+class IntegrationTestClient : public slick::socket::TCPClientBase<IntegrationTestClient>
 {
 public:
-    using slick_socket::TCPClientBase<IntegrationTestClient>::TCPClientBase;
+    using slick::socket::TCPClientBase<IntegrationTestClient>::TCPClientBase;
     
     void onConnected() {
         connected_count++;
@@ -111,8 +111,8 @@ protected:
         return true;
     }
 
-    slick_socket::TCPServerConfig server_config_;
-    slick_socket::TCPClientConfig client_config_;
+    slick::socket::TCPServerConfig server_config_;
+    slick::socket::TCPClientConfig client_config_;
     std::unique_ptr<IntegrationTestServer> server_;
     std::unique_ptr<IntegrationTestClient> client_;
 };

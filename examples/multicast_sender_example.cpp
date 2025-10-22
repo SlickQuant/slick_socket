@@ -1,22 +1,22 @@
 #include "logger.h"
-#include <slick_socket/multicast_sender.h>
+#include <slick/socket/multicast_sender.h>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <chrono>
 
-class MulticastSender : public slick_socket::MulticastSenderBase<MulticastSender>
+class MulticastSender : public slick::socket::MulticastSenderBase<MulticastSender>
 {
 public:
-    MulticastSender(const slick_socket::MulticastSenderConfig& config)
-        : slick_socket::MulticastSenderBase<MulticastSender>("MulticastSender", config)
+    MulticastSender(const slick::socket::MulticastSenderConfig& config)
+        : slick::socket::MulticastSenderBase<MulticastSender>("MulticastSender", config)
     {
     }
 };
 
 int main()
 {
-    slick_socket::MulticastSenderConfig config;
+    slick::socket::MulticastSenderConfig config;
     config.multicast_address = "224.0.0.100"; // Test multicast address
     config.port = 12345;
     config.ttl = 1; // Local network only

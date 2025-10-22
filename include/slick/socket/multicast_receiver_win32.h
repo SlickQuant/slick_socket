@@ -1,15 +1,11 @@
 #pragma once
 
+#include "logger.h"
 #include "multicast_receiver.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <errno.h>
-#include <cstring>
-#include <sys/time.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 
-namespace slick_socket
+namespace slick::socket
 {
 
 template<typename DerivedT>
@@ -39,20 +35,32 @@ bool MulticastReceiverBase<DerivedT>::start()
 
     LOG_INFO("Starting {} for group {}:{}...", name_, config_.multicast_address, config_.port);
 
+    // Initialize Winsock if not already done
+    WSADATA wsaData;
+    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (result != 0)
+    {
+        LOG_ERROR("WSAStartup failed: {}", result);
+        return false;
+    }
+
     if (!initialize_socket())
     {
+        WSACleanup();
         return false;
     }
 
     if (!setup_multicast_options())
     {
         cleanup_socket();
+        WSACleanup();
         return false;
     }
 
     if (!join_multicast_group())
     {
         cleanup_socket();
+        WSACleanup();
         return false;
     }
 
@@ -84,6 +92,7 @@ void MulticastReceiverBase<DerivedT>::stop()
 
     leave_multicast_group();
     cleanup_socket();
+    WSACleanup();
 
     LOG_INFO("{} stopped", name_);
 }
@@ -93,40 +102,38 @@ void MulticastReceiverBase<DerivedT>::receiver_loop()
 {
     std::vector<uint8_t> buffer(config_.receive_buffer_size);
     sockaddr_in sender_addr{};
-    socklen_t sender_addr_len = sizeof(sender_addr);
+    int sender_addr_len = sizeof(sender_addr);
 
     LOG_DEBUG("Receiver loop started for {}", name_);
 
     while (running_.load(std::memory_order_relaxed))
     {
         // Set socket timeout
-        struct timeval timeout;
-        timeout.tv_sec = config_.receive_timeout.count() / 1000;
-        timeout.tv_usec = (config_.receive_timeout.count() % 1000) * 1000;
-        
-        if (setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        DWORD timeout = static_cast<DWORD>(config_.receive_timeout.count());
+        if (setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, 
+                       reinterpret_cast<const char*>(&timeout), sizeof(timeout)) == SOCKET_ERROR)
         {
             LOG_WARN("Failed to set receive timeout");
         }
 
-        ssize_t bytes_received = recvfrom(socket_, 
-                                         buffer.data(), 
-                                         buffer.size(),
-                                         0,
-                                         reinterpret_cast<sockaddr*>(&sender_addr),
-                                         &sender_addr_len);
+        int bytes_received = recvfrom(socket_, 
+                                     reinterpret_cast<char*>(buffer.data()), 
+                                     static_cast<int>(buffer.size()),
+                                     0,
+                                     reinterpret_cast<sockaddr*>(&sender_addr),
+                                     &sender_addr_len);
 
-        if (bytes_received < 0)
+        if (bytes_received == SOCKET_ERROR)
         {
-            int error = errno;
-            if (error == EAGAIN || error == EWOULDBLOCK)
+            int error = WSAGetLastError();
+            if (error == WSAETIMEDOUT)
             {
                 // Timeout is normal, continue loop
                 continue;
             }
             else if (running_.load(std::memory_order_relaxed))
             {
-                LOG_ERROR("Failed to receive multicast data. error={} ({})", error, strerror(error));
+                LOG_ERROR("Failed to receive multicast data. error={}", error);
                 receive_errors_.fetch_add(1, std::memory_order_relaxed);
             }
             continue;
@@ -165,20 +172,21 @@ template<typename DerivedT>
 bool MulticastReceiverBase<DerivedT>::initialize_socket()
 {
     // Create UDP socket
-    socket_ = socket(AF_INET, SOCK_DGRAM, 0);
+    socket_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (socket_ == invalid_socket)
     {
-        int error = errno;
-        LOG_ERROR("Failed to create socket. error={} ({})", error, strerror(error));
+        int error = WSAGetLastError();
+        LOG_ERROR("Failed to create socket. error={}", error);
         return false;
     }
 
     // Set socket buffer size
     int buffer_size = config_.receive_buffer_size;
-    if (setsockopt(socket_, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size)) < 0)
+    if (setsockopt(socket_, SOL_SOCKET, SO_RCVBUF, 
+                   reinterpret_cast<const char*>(&buffer_size), sizeof(buffer_size)) == SOCKET_ERROR)
     {
-        int error = errno;
-        LOG_WARN("Failed to set receive buffer size. error={} ({})", error, strerror(error));
+        int error = WSAGetLastError();
+        LOG_WARN("Failed to set receive buffer size. error={}", error);
     }
 
     return true;
@@ -189,7 +197,7 @@ void MulticastReceiverBase<DerivedT>::cleanup_socket()
 {
     if (socket_ != invalid_socket)
     {
-        close(socket_);
+        closesocket(socket_);
         socket_ = invalid_socket;
     }
 }
@@ -200,11 +208,12 @@ bool MulticastReceiverBase<DerivedT>::setup_multicast_options()
     // Enable address reuse
     if (config_.reuse_address)
     {
-        int reuse = 1;
-        if (setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
+        DWORD reuse = 1;
+        if (setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR,
+                       reinterpret_cast<const char*>(&reuse), sizeof(reuse)) == SOCKET_ERROR)
         {
-            int error = errno;
-            LOG_WARN("Failed to set address reuse. error={} ({})", error, strerror(error));
+            int error = WSAGetLastError();
+            LOG_WARN("Failed to set address reuse. error={}", error);
         }
     }
 
@@ -214,10 +223,10 @@ bool MulticastReceiverBase<DerivedT>::setup_multicast_options()
     bind_addr.sin_port = htons(config_.port);
     bind_addr.sin_addr.s_addr = INADDR_ANY; // Bind to any interface
 
-    if (bind(socket_, reinterpret_cast<const sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0)
+    if (bind(socket_, reinterpret_cast<const sockaddr*>(&bind_addr), sizeof(bind_addr)) == SOCKET_ERROR)
     {
-        int error = errno;
-        LOG_ERROR("Failed to bind socket to port {}. error={} ({})", config_.port, error, strerror(error));
+        int error = WSAGetLastError();
+        LOG_ERROR("Failed to bind socket to port {}. error={}", config_.port, error);
         return false;
     }
 
@@ -253,10 +262,11 @@ bool MulticastReceiverBase<DerivedT>::join_multicast_group()
     }
 
     // Join multicast group
-    if (setsockopt(socket_, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+    if (setsockopt(socket_, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                   reinterpret_cast<const char*>(&mreq), sizeof(mreq)) == SOCKET_ERROR)
     {
-        int error = errno;
-        LOG_ERROR("Failed to join multicast group {}. error={} ({})", config_.multicast_address, error, strerror(error));
+        int error = WSAGetLastError();
+        LOG_ERROR("Failed to join multicast group {}. error={}", config_.multicast_address, error);
         return false;
     }
 
@@ -287,10 +297,11 @@ void MulticastReceiverBase<DerivedT>::leave_multicast_group()
         }
 
         // Leave multicast group
-        if (setsockopt(socket_, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+        if (setsockopt(socket_, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                       reinterpret_cast<const char*>(&mreq), sizeof(mreq)) == SOCKET_ERROR)
         {
-            int error = errno;
-            LOG_WARN("Failed to leave multicast group {}. error={} ({})", config_.multicast_address, error, strerror(error));
+            int error = WSAGetLastError();
+            LOG_WARN("Failed to leave multicast group {}. error={}", config_.multicast_address, error);
         }
         else
         {
@@ -299,4 +310,4 @@ void MulticastReceiverBase<DerivedT>::leave_multicast_group()
     }
 }
 
-} // namespace slick_socket
+} // namespace slick::socket

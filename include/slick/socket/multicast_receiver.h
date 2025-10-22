@@ -1,6 +1,6 @@
 #pragma once
 
-#include <slick_socket/logger.h>
+#include <slick/socket/logger.h>
 #include <vector>
 #include <string>
 #include <chrono>
@@ -12,7 +12,7 @@
 #include <ws2tcpip.h>
 #endif
 
-namespace slick_socket
+namespace slick::socket
 {
 
 struct MulticastReceiverConfig
@@ -101,7 +101,7 @@ private:
     void leave_multicast_group();
 };
 
-} // namespace slick_socket
+} // namespace slick::socket
 
 #if defined(_WIN32) || defined(_WIN64)
 #include "multicast_receiver_win32.h"

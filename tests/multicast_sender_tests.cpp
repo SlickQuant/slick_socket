@@ -1,15 +1,15 @@
 #include <gtest/gtest.h>
-#include <slick_socket/multicast_sender.h>
+#include <slick/socket/multicast_sender.h>
 #include <thread>
 #include <chrono>
 
-class TestMulticastSender : public slick_socket::MulticastSenderBase<TestMulticastSender>
+class TestMulticastSender : public slick::socket::MulticastSenderBase<TestMulticastSender>
 {
 public:
-    using slick_socket::MulticastSenderBase<TestMulticastSender>::MulticastSenderBase;
-    using slick_socket::MulticastSenderBase<TestMulticastSender>::get_packets_sent;
-    using slick_socket::MulticastSenderBase<TestMulticastSender>::get_bytes_sent;
-    using slick_socket::MulticastSenderBase<TestMulticastSender>::get_send_errors;
+    using slick::socket::MulticastSenderBase<TestMulticastSender>::MulticastSenderBase;
+    using slick::socket::MulticastSenderBase<TestMulticastSender>::get_packets_sent;
+    using slick::socket::MulticastSenderBase<TestMulticastSender>::get_bytes_sent;
+    using slick::socket::MulticastSenderBase<TestMulticastSender>::get_send_errors;
 };
 
 class MulticastSenderTest : public ::testing::Test {
@@ -29,7 +29,7 @@ protected:
         }
     }
 
-    slick_socket::MulticastSenderConfig config_;
+    slick::socket::MulticastSenderConfig config_;
     std::unique_ptr<TestMulticastSender> sender_;
 };
 
@@ -127,7 +127,7 @@ TEST_F(MulticastSenderTest, SendEmptyData) {
 
 TEST_F(MulticastSenderTest, ConfigurationValidation) {
     // Test valid configuration
-    slick_socket::MulticastSenderConfig valid_config;
+    slick::socket::MulticastSenderConfig valid_config;
     valid_config.multicast_address = "224.1.1.1";
     valid_config.port = 9999;
     valid_config.ttl = 5;

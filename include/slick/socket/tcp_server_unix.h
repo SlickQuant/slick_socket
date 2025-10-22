@@ -15,7 +15,7 @@
 #include <pthread.h>
 #include <sys/epoll.h>
 
-namespace slick_socket
+namespace slick::socket
 {
 
 template<typename DerivedT>
@@ -61,7 +61,7 @@ inline bool TCPServerBase<DerivedT>::start()
 
     LOG_INFO("Starting {}, lisening on: {}...", name_, config_.port);
     // Create server socket
-    server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
+    server_socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket_ < 0)
     {
         LOG_ERROR("Failed to create server socket");
@@ -394,6 +394,6 @@ void TCPServerBase<DerivedT>::handle_client_data(int client_id, std::vector<uint
     }
 }
 
-} // namespace slick_socket
+} // namespace slick::socket
 
 #endif // !_WIN32 && !_WIN64

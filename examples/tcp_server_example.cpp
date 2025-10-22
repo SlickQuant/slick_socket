@@ -1,13 +1,13 @@
 #include "logger.h"
-#include <slick_socket/tcp_server.h>
+#include <slick/socket/tcp_server.h>
 #include <iostream>
 #include <string>
 
-class TCPServer : public slick_socket::TCPServerBase<TCPServer>
+class TCPServer : public slick::socket::TCPServerBase<TCPServer>
 {
 public:
-    TCPServer(const slick_socket::TCPServerConfig& config)
-        : slick_socket::TCPServerBase<TCPServer>("Echo TCP Server", config)
+    TCPServer(const slick::socket::TCPServerConfig& config)
+        : slick::socket::TCPServerBase<TCPServer>("Echo TCP Server", config)
     {
     }
 
@@ -31,7 +31,7 @@ public:
 
 int main()
 {
-    slick_socket::TCPServerConfig config;
+    slick::socket::TCPServerConfig config;
     config.port = 9090; // Set custom port if needed
     config.max_connections = 50; // Set max connections
     config.receive_buffer_size = 8192; // Set receive buffer size

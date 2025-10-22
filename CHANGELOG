@@ -1,2 +1,7 @@
-v1.0.0.0 - [09/26/2025]
+#v1.0.0.1 - [10/21/2025]
+- Change include folder structure from include/slick_socket/ to include/slick/
+- Change namespace from slick_socket to slick::socket
+- Add GitHub CI workflow
+
+#1.0.0.0 - [09/26/2025]
 - Initial Release

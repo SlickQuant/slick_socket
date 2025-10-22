@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include <slick_socket/logger.h>
+#include <slick/socket/logger.h>
 #include <vector>
 #include <thread>
 #include <string>
@@ -30,7 +30,7 @@
 #include <winsock2.h>
 #endif
 
-namespace slick_socket
+namespace slick::socket
 {
 
 struct TCPClientConfig
@@ -94,7 +94,7 @@ protected:
     SocketT socket_ = invalid_socket;
 };
 
-} // namespace slick_socket
+} // namespace slick::socket
 
 #if defined(_WIN32) || defined(_WIN64)
 #include "tcp_client_win32.h"

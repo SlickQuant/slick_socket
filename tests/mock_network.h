@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-namespace slick_socket::test
+namespace slick::socket::test
 {
 
 // Mock callback classes for testing TCPServer callbacks
@@ -78,4 +78,4 @@ public:
     static void simulateNetworkDelay(int milliseconds);
 };
 
-} // namespace slick_socket::test
+} // namespace slick::socket::test

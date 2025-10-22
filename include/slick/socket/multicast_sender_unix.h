@@ -1,11 +1,14 @@
 #pragma once
 
-#include "logger.h"
 #include "multicast_sender.h"
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <errno.h>
+#include <cstring>
 
-namespace slick_socket
+namespace slick::socket
 {
 
 template<typename DerivedT>
@@ -35,25 +38,14 @@ bool MulticastSenderBase<DerivedT>::start()
 
     LOG_INFO("Starting {} on {}:{}...", name_, config_.multicast_address, config_.port);
 
-    // Initialize Winsock if not already done
-    WSADATA wsaData;
-    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (result != 0)
-    {
-        LOG_ERROR("WSAStartup failed: {}", result);
-        return false;
-    }
-
     if (!initialize_socket())
     {
-        WSACleanup();
         return false;
     }
 
     if (!setup_multicast_options())
     {
         cleanup_socket();
-        WSACleanup();
         return false;
     }
 
@@ -74,7 +66,6 @@ void MulticastSenderBase<DerivedT>::stop()
     running_.store(false, std::memory_order_relaxed);
 
     cleanup_socket();
-    WSACleanup();
 
     LOG_INFO("{} stopped", name_);
 }
@@ -108,17 +99,17 @@ bool MulticastSenderBase<DerivedT>::send_data(const std::vector<uint8_t>& data)
     }
 
     // Send the data
-    int bytes_sent = sendto(socket_, 
-                           reinterpret_cast<const char*>(data.data()), 
-                           static_cast<int>(data.size()),
-                           0,
-                           reinterpret_cast<const sockaddr*>(&dest_addr),
-                           sizeof(dest_addr));
+    ssize_t bytes_sent = sendto(socket_, 
+                               data.data(), 
+                               data.size(),
+                               0,
+                               reinterpret_cast<const sockaddr*>(&dest_addr),
+                               sizeof(dest_addr));
 
-    if (bytes_sent == SOCKET_ERROR)
+    if (bytes_sent < 0)
     {
-        int error = WSAGetLastError();
-        LOG_ERROR("Failed to send multicast data. error={}", error);
+        int error = errno;
+        LOG_ERROR("Failed to send multicast data. error={} ({})", error, strerror(error));
         send_errors_.fetch_add(1, std::memory_order_relaxed);
         return false;
     }
@@ -139,21 +130,20 @@ template<typename DerivedT>
 bool MulticastSenderBase<DerivedT>::initialize_socket()
 {
     // Create UDP socket
-    socket_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    socket_ = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_ == invalid_socket)
     {
-        int error = WSAGetLastError();
-        LOG_ERROR("Failed to create socket. error={}", error);
+        int error = errno;
+        LOG_ERROR("Failed to create socket. error={} ({})", error, strerror(error));
         return false;
     }
 
     // Set socket buffer size
     int buffer_size = config_.send_buffer_size;
-    if (setsockopt(socket_, SOL_SOCKET, SO_SNDBUF, 
-                   reinterpret_cast<const char*>(&buffer_size), sizeof(buffer_size)) == SOCKET_ERROR)
+    if (setsockopt(socket_, SOL_SOCKET, SO_SNDBUF, &buffer_size, sizeof(buffer_size)) < 0)
     {
-        int error = WSAGetLastError();
-        LOG_WARN("Failed to set send buffer size. error={}", error);
+        int error = errno;
+        LOG_WARN("Failed to set send buffer size. error={} ({})", error, strerror(error));
     }
 
     return true;
@@ -164,7 +154,7 @@ void MulticastSenderBase<DerivedT>::cleanup_socket()
 {
     if (socket_ != invalid_socket)
     {
-        closesocket(socket_);
+        close(socket_);
         socket_ = invalid_socket;
     }
 }
@@ -173,22 +163,20 @@ template<typename DerivedT>
 bool MulticastSenderBase<DerivedT>::setup_multicast_options()
 {
     // Set TTL for multicast packets
-    DWORD ttl = static_cast<DWORD>(config_.ttl);
-    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_TTL,
-                   reinterpret_cast<const char*>(&ttl), sizeof(ttl)) == SOCKET_ERROR)
+    int ttl = config_.ttl;
+    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
     {
-        int error = WSAGetLastError();
-        LOG_ERROR("Failed to set multicast TTL. error={}", error);
+        int error = errno;
+        LOG_ERROR("Failed to set multicast TTL. error={} ({})", error, strerror(error));
         return false;
     }
 
     // Set multicast loopback
-    DWORD loopback = config_.enable_loopback ? 1 : 0;
-    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_LOOP,
-                   reinterpret_cast<const char*>(&loopback), sizeof(loopback)) == SOCKET_ERROR)
+    int loopback = config_.enable_loopback ? 1 : 0;
+    if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_LOOP, &loopback, sizeof(loopback)) < 0)
     {
-        int error = WSAGetLastError();
-        LOG_ERROR("Failed to set multicast loopback. error={}", error);
+        int error = errno;
+        LOG_ERROR("Failed to set multicast loopback. error={} ({})", error, strerror(error));
         return false;
     }
 
@@ -199,11 +187,10 @@ bool MulticastSenderBase<DerivedT>::setup_multicast_options()
         int result = inet_pton(AF_INET, config_.interface_address.c_str(), &interface_addr);
         if (result == 1)
         {
-            if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_IF,
-                          reinterpret_cast<const char*>(&interface_addr), sizeof(interface_addr)) == SOCKET_ERROR)
+            if (setsockopt(socket_, IPPROTO_IP, IP_MULTICAST_IF, &interface_addr, sizeof(interface_addr)) < 0)
             {
-                int error = WSAGetLastError();
-                LOG_ERROR("Failed to set multicast interface. error={}", error);
+                int error = errno;
+                LOG_ERROR("Failed to set multicast interface. error={} ({})", error, strerror(error));
                 return false;
             }
         }
@@ -216,4 +203,4 @@ bool MulticastSenderBase<DerivedT>::setup_multicast_options()
     return true;
 }
 
-} // namespace slick_socket
+} // namespace slick::socket

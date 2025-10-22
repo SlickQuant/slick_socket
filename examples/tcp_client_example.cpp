@@ -1,5 +1,5 @@
 #include "logger.h"
-#include <slick_socket/tcp_client.h>
+#include <slick/socket/tcp_client.h>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -9,11 +9,11 @@ namespace {
     std::atomic_bool data_received_{false};
 }
 
-class TCPClient : public slick_socket::TCPClientBase<TCPClient>
+class TCPClient : public slick::socket::TCPClientBase<TCPClient>
 {
 public:
-    TCPClient(const slick_socket::TCPClientConfig& config)
-        : slick_socket::TCPClientBase<TCPClient>("Tcp Client", config)
+    TCPClient(const slick::socket::TCPClientConfig& config)
+        : slick::socket::TCPClientBase<TCPClient>("Tcp Client", config)
     {
     }
 
@@ -37,7 +37,7 @@ public:
 
 int main()
 {
-    slick_socket::TCPClientConfig config;
+    slick::socket::TCPClientConfig config;
     config.server_address = "127.0.0.1"; // Server address
     config.server_port = 9090; // Server port (should match server example)
     config.receive_buffer_size = 4096;

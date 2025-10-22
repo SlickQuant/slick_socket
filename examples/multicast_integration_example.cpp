@@ -1,17 +1,17 @@
 #include "logger.h"
-#include <slick_socket/multicast_sender.h>
-#include <slick_socket/multicast_receiver.h>
+#include <slick/socket/multicast_sender.h>
+#include <slick/socket/multicast_receiver.h>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <chrono>
 #include <atomic>
 
-class MulticastReceiver : public slick_socket::MulticastReceiverBase<MulticastReceiver>
+class MulticastReceiver : public slick::socket::MulticastReceiverBase<MulticastReceiver>
 {
 public:
-    MulticastReceiver(const slick_socket::MulticastReceiverConfig& config)
-        : slick_socket::MulticastReceiverBase<MulticastReceiver>("IntegrationReceiver", config)
+    MulticastReceiver(const slick::socket::MulticastReceiverConfig& config)
+        : slick::socket::MulticastReceiverBase<MulticastReceiver>("IntegrationReceiver", config)
     {
     }
 
@@ -25,11 +25,11 @@ public:
     std::atomic<int> messages_received_{0};
 };
 
-class MulticastSender : public slick_socket::MulticastSenderBase<MulticastSender>
+class MulticastSender : public slick::socket::MulticastSenderBase<MulticastSender>
 {
 public:
-    MulticastSender(const slick_socket::MulticastSenderConfig& config)
-        : slick_socket::MulticastSenderBase<MulticastSender>("IntegrationSender", config)
+    MulticastSender(const slick::socket::MulticastSenderConfig& config)
+        : slick::socket::MulticastSenderBase<MulticastSender>("IntegrationSender", config)
     {
     }
 };
@@ -44,14 +44,14 @@ int main()
     const uint16_t port = 12347;
 
     // Setup receiver
-    slick_socket::MulticastReceiverConfig receiver_config;
+    slick::socket::MulticastReceiverConfig receiver_config;
     receiver_config.multicast_address = multicast_address;
     receiver_config.port = port;
     receiver_config.reuse_address = true;
     receiver_config.receive_timeout = std::chrono::milliseconds(1000);
 
     // Setup sender  
-    slick_socket::MulticastSenderConfig sender_config;
+    slick::socket::MulticastSenderConfig sender_config;
     sender_config.multicast_address = multicast_address;
     sender_config.port = port;
     sender_config.ttl = 1; // Local network only

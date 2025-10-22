@@ -11,7 +11,7 @@
 #include <ws2tcpip.h>
 #endif
 
-namespace slick_socket
+namespace slick::socket
 {
 
 struct MulticastSenderConfig
@@ -101,7 +101,7 @@ private:
     bool setup_multicast_options();
 };
 
-} // namespace slick_socket
+} // namespace slick::socket
 
 #if defined(_WIN32) || defined(_WIN64)
 #include "multicast_sender_win32.h"

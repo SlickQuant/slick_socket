@@ -11,7 +11,7 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-namespace slick_socket
+namespace slick::socket
 {
 
 template<typename DrivedT>
@@ -63,7 +63,7 @@ inline bool TCPServerBase<DrivedT>::start()
 
     LOG_INFO("Starting {}, lisening on: {}...", name_, config_.port);
     // Create server socket
-    server_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    server_socket_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (server_socket_ == INVALID_SOCKET)
     {
         LOG_ERROR("Failed to create server socket");
@@ -405,6 +405,6 @@ void TCPServerBase<DrivedT>::handle_client_data(int client_id, std::vector<uint8
     }
 }
 
-} // namespace slick_socket
+} // namespace slick::socket
 
 #endif // _WIN32

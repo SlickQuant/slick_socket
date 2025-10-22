@@ -8,13 +8,13 @@
 #include <chrono>
 #include <unordered_map>
 #include <string>
-#include <slick_socket/logger.h>
+#include <slick/socket/logger.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
 #endif
 
-namespace slick_socket
+namespace slick::socket
 {
 
 struct TCPServerConfig
@@ -111,7 +111,7 @@ protected:
     std::atomic<int> next_client_id_{1};
 };
 
-} // namespace slick_socket
+} // namespace slick::socket
 
 #if defined(_WIN32) || defined(_WIN64)
 #include "tcp_server_win32.h"

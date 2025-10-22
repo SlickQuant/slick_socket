@@ -1,16 +1,16 @@
 #include <gtest/gtest.h>
-#include <slick_socket/multicast_receiver.h>
+#include <slick/socket/multicast_receiver.h>
 #include <thread>
 #include <chrono>
 #include <atomic>
 
-class TestMulticastReceiver : public slick_socket::MulticastReceiverBase<TestMulticastReceiver>
+class TestMulticastReceiver : public slick::socket::MulticastReceiverBase<TestMulticastReceiver>
 {
 public:
-    using slick_socket::MulticastReceiverBase<TestMulticastReceiver>::MulticastReceiverBase;
-    using slick_socket::MulticastReceiverBase<TestMulticastReceiver>::get_packets_received;
-    using slick_socket::MulticastReceiverBase<TestMulticastReceiver>::get_bytes_received;
-    using slick_socket::MulticastReceiverBase<TestMulticastReceiver>::get_receive_errors;
+    using slick::socket::MulticastReceiverBase<TestMulticastReceiver>::MulticastReceiverBase;
+    using slick::socket::MulticastReceiverBase<TestMulticastReceiver>::get_packets_received;
+    using slick::socket::MulticastReceiverBase<TestMulticastReceiver>::get_bytes_received;
+    using slick::socket::MulticastReceiverBase<TestMulticastReceiver>::get_receive_errors;
 
     void handle_multicast_data(const std::vector<uint8_t>& data, const std::string& sender_address)
     {
@@ -43,7 +43,7 @@ protected:
         }
     }
 
-    slick_socket::MulticastReceiverConfig config_;
+    slick::socket::MulticastReceiverConfig config_;
     std::unique_ptr<TestMulticastReceiver> receiver_;
 };
 
@@ -96,7 +96,7 @@ TEST_F(MulticastReceiverTest, ReceiverCallbackInitialization) {
 
 TEST_F(MulticastReceiverTest, ConfigurationValidation) {
     // Test valid configuration
-    slick_socket::MulticastReceiverConfig valid_config;
+    slick::socket::MulticastReceiverConfig valid_config;
     valid_config.multicast_address = "224.1.1.2";
     valid_config.port = 9998;
     valid_config.reuse_address = false;
