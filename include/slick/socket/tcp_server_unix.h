@@ -13,7 +13,13 @@
 #include <algorithm>
 #include <cstring>
 #include <pthread.h>
+
+#ifdef __APPLE__
+#include <sys/event.h>
+#include <sys/time.h>
+#else
 #include <sys/epoll.h>
+#endif
 
 namespace slick::socket
 {
@@ -204,7 +210,13 @@ inline bool TCPServerBase<DerivedT>::send_data(int client_id, const std::vector<
 template<typename DerivedT>
 inline void TCPServerBase<DerivedT>::close_socket(SocketT socket)
 {
+#ifdef __APPLE__
+    struct kevent ev;
+    EV_SET(&ev, socket, EVFILT_READ, EV_DELETE, 0, 0, 0);
+    kevent(epoll_fd_, &ev, 1, nullptr, 0, nullptr);
+#else
     epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, socket, nullptr);
+#endif
     socket_to_client_id_.erase(socket);
     close(socket);
 }
@@ -226,24 +238,92 @@ void TCPServerBase<DerivedT>::server_loop()
     // Set CPU affinity if specified
     if (config_.cpu_affinity >= 0)
     {
+#ifndef __APPLE__
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(config_.cpu_affinity, &cpuset);
-        
+
         pthread_t thread = pthread_self();
         int result = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
         if (result != 0)
         {
-            LOG_WARN("Failed to set CPU affinity to core {}: {}", 
+            LOG_WARN("Failed to set CPU affinity to core {}: {}",
                              config_.cpu_affinity, std::strerror(result));
         }
         else
         {
             LOG_INFO("Server thread pinned to CPU core {}", config_.cpu_affinity);
         }
+#else
+        LOG_WARN("CPU affinity not supported on macOS");
+#endif
     }
 
-    // Create epoll instance
+#ifdef __APPLE__
+    // macOS: Use kqueue
+    epoll_fd_ = kqueue();
+    if (epoll_fd_ < 0)
+    {
+        LOG_ERROR("Failed to create kqueue instance: {}", std::strerror(errno));
+        return;
+    }
+
+    // Add server socket to kqueue
+    struct kevent ev;
+    EV_SET(&ev, server_socket_, EVFILT_READ, EV_ADD, 0, 0, 0);
+    if (kevent(epoll_fd_, &ev, 1, nullptr, 0, nullptr) < 0)
+    {
+        LOG_ERROR("Failed to add server socket to kqueue: {}", std::strerror(errno));
+        close(epoll_fd_);
+        epoll_fd_ = -1;
+        return;
+    }
+
+    const int MAX_EVENTS = 64;
+    struct kevent events[MAX_EVENTS];
+    std::vector<uint8_t> buffer(config_.receive_buffer_size);
+
+    while (running_.load())
+    {
+        // Wait for events with 1 second timeout
+        int num_events = kevent(epoll_fd_, nullptr, 0, events, MAX_EVENTS, nullptr);
+        if (num_events < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            LOG_ERROR("kevent failed: {}", std::strerror(errno));
+            break;
+        }
+
+        for (int i = 0; i < num_events; i++)
+        {
+            int fd = static_cast<int>(events[i].ident);
+            if (fd == server_socket_)
+            {
+                // New connection on server socket
+                accept_new_client();
+            }
+            else
+            {
+                auto it = socket_to_client_id_.find(fd);
+                if (it != socket_to_client_id_.end())
+                {
+                    handle_client_data(it->second, buffer);
+                }
+            }
+        }
+    }
+
+    // Clean up
+    if (epoll_fd_ >= 0)
+    {
+        close(epoll_fd_);
+        epoll_fd_ = -1;
+    }
+#else
+    // Linux: Use epoll
     epoll_fd_ = epoll_create1(0);
     if (epoll_fd_ < 0)
     {
@@ -300,11 +380,12 @@ void TCPServerBase<DerivedT>::server_loop()
     }
 
     // Clean up
-    if (epoll_fd_ != nullptr)
+    if (epoll_fd_ >= 0)
     {
-        epoll_close(epoll_fd_);
-        epoll_fd_ = nullptr;
+        close(epoll_fd_);
+        epoll_fd_ = -1;
     }
+#endif
 }
 
 template<typename DerivedT>
@@ -330,7 +411,17 @@ void TCPServerBase<DerivedT>::accept_new_client()
         fcntl(client_socket, F_SETFL, flags | O_NONBLOCK);
     }
 
-    // Add client socket to epoll
+    // Add client socket to event system
+#ifdef __APPLE__
+    struct kevent ev;
+    EV_SET(&ev, client_socket, EVFILT_READ, EV_ADD, 0, 0, 0);
+    if (kevent(epoll_fd_, &ev, 1, nullptr, 0, nullptr) < 0)
+    {
+        LOG_ERROR("Failed to add client socket to kqueue: {}", std::strerror(errno));
+        close(client_socket);
+        return;
+    }
+#else
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;  // Edge-triggered mode
     ev.data.fd = client_socket;
@@ -340,6 +431,7 @@ void TCPServerBase<DerivedT>::accept_new_client()
         close(client_socket);
         return;
     }
+#endif
 
     // Get client address
     char addr_str[INET_ADDRSTRLEN];
