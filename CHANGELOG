@@ -2,7 +2,8 @@
 - Change include folder structure from include/slick_socket/ to include/slick/
 - Change namespace from slick_socket to slick::socket
 - Add GitHub CI workflow
-- Fix MacOS build by using kqueue/kevent
+- Fix MacOS build
+- Fix example log macros doesn't work without format args
 
 #1.0.0.0 - [09/26/2025]
 - Initial Release
