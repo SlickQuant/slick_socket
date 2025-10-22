@@ -203,8 +203,18 @@ bool MulticastReceiverBase<DerivedT>::setup_multicast_options()
         if (setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
         {
             int error = errno;
-            LOG_WARN("Failed to set address reuse. error={} ({})", error, strerror(error));
+            LOG_WARN("Failed to set SO_REUSEADDR. error={} ({})", error, strerror(error));
         }
+
+#ifdef SO_REUSEPORT
+        // On BSD-derived systems (macOS, FreeBSD), SO_REUSEPORT is required
+        // to allow multiple sockets to bind to the same port
+        if (setsockopt(socket_, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0)
+        {
+            int error = errno;
+            LOG_WARN("Failed to set SO_REUSEPORT. error={} ({})", error, strerror(error));
+        }
+#endif
     }
 
     // Bind to the multicast port

@@ -146,16 +146,16 @@ TEST_F(MulticastReceiverTest, MultipleReceiversSameGroup) {
     // Test that multiple receivers can listen to the same multicast group
     auto receiver1 = std::make_unique<TestMulticastReceiver>("TestReceiver1", config_);
     auto receiver2 = std::make_unique<TestMulticastReceiver>("TestReceiver2", config_);
-    
-    // Both should be able to start (due to reuse_address = true)
+
+    // Both should be able to start (due to reuse_address = true and SO_REUSEPORT)
     EXPECT_TRUE(receiver1->start());
     EXPECT_TRUE(receiver2->start());
-    
+
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    
+
     EXPECT_TRUE(receiver1->is_running());
     EXPECT_TRUE(receiver2->is_running());
-    
+
     receiver1->stop();
     receiver2->stop();
 }
