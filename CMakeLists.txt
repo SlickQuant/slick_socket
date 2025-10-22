@@ -93,11 +93,19 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
   )
 
   if (PROJECT_IS_TOP_LEVEL)
-      add_custom_target(package_slick_socket ALL
-          COMMAND ${CMAKE_COMMAND} -E tar "cfv" "${CMAKE_BINARY_DIR}/dist/slick_socket_${BUILD_VERSION}.zip" --format=zip "include" "lib"
-          WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/dist"
-          COMMENT "Creating zip archive"
-      )
+      if (WIN32)
+          add_custom_target(package_slick_socket ALL
+              COMMAND ${CMAKE_COMMAND} -E tar "cfv" "${CMAKE_BINARY_DIR}/dist/slick_socket_${BUILD_VERSION}.zip" --format=zip "include" "lib"
+              WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/dist"
+              COMMENT "Creating zip archive"
+          )
+      else()
+          add_custom_target(package_slick_socket ALL
+              COMMAND ${CMAKE_COMMAND} -E tar "cfv" "${CMAKE_BINARY_DIR}/dist/slick_socket_${BUILD_VERSION}.zip" --format=zip "include"
+              WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/dist"
+              COMMENT "Creating zip archive"
+          )
+      endif()
 
       add_dependencies(package_slick_socket dist_slick_socket)
   endif()
