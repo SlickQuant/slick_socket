@@ -89,7 +89,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
   if (WIN32)
     add_custom_target(dist_slick_socket ALL
       COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_BINARY_DIR}/dist/include
-      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}/slick_socket.lib ${CMAKE_BINARY_DIR}/dist/lib/slick_socket.lib
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}/slick_socket.lib ${CMAKE_BINARY_DIR}/dist/lib/slick_socket.lib
       COMMENT "Copying slick_socket headers to dist/include"
       VERBATIM
     )
