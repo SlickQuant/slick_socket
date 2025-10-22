@@ -285,8 +285,12 @@ void TCPServerBase<DerivedT>::server_loop()
 
     while (running_.load())
     {
-        // Wait for events with 1 second timeout
-        int num_events = kevent(epoll_fd_, nullptr, 0, events, MAX_EVENTS, nullptr);
+        // Set timeout to 1us to allow checking running_ flag
+        struct timespec timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_nsec = 1000; // 1us
+
+        int num_events = kevent(epoll_fd_, nullptr, 0, events, MAX_EVENTS, &timeout);
         if (num_events < 0)
         {
             if (errno == EINTR)
@@ -349,7 +353,6 @@ void TCPServerBase<DerivedT>::server_loop()
 
     while (running_.load())
     {
-        // Wait for events with 1 second timeout
         int num_events = epoll_wait(epoll_fd_, events, MAX_EVENTS, 0);
         if (num_events < 0)
         {
