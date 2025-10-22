@@ -37,8 +37,10 @@ target_include_directories(tests
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# Discover tests
-gtest_discover_tests(tests)
+# Discover tests with increased timeout
+gtest_discover_tests(tests
+    DISCOVERY_TIMEOUT 30
+)
 
 # Set test properties
 set_target_properties(tests PROPERTIES

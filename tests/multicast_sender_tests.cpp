@@ -19,7 +19,7 @@ protected:
         config_.port = 12345;
         config_.interface_address = "0.0.0.0"; // Any interface
         config_.ttl = 1; // Local network only for testing
-        config_.enable_loopback = false;
+        config_.enable_loopback = true; // Enable loopback for CI environments
         config_.send_buffer_size = 65536;
     }
 
