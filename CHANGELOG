@@ -1,3 +1,11 @@
+#v1.0.2 - [12/05/2025]
+- Change MulticastSender from template class to regular class (breaking change)
+- Upgrade Google Test to v1.17.0
+- Fix MSVC MSB8028 warnings about intermediate directory conflicts
+- Set explicit RUNTIME_OUTPUT_DIRECTORY for example executables
+- Add MSVC runtime library configuration
+- Remove redundant VS_GLOBAL_IntDir properties from custom targets
+
 #v1.0.1 - [10/21/2025]
 - Change include folder structure from include/slick_socket/ to include/slick/
 - Change namespace from slick_socket to slick::socket

@@ -24,20 +24,19 @@ struct MulticastSenderConfig
     int send_buffer_size = 65536; // Socket send buffer size
 };
 
-template<typename DerivedT>
-class MulticastSenderBase
+class MulticastSender
 {
 public:
-    explicit MulticastSenderBase(std::string name, const MulticastSenderConfig& config = MulticastSenderConfig());
-    virtual ~MulticastSenderBase();
+    explicit MulticastSender(std::string name, const MulticastSenderConfig& config = MulticastSenderConfig());
+    virtual ~MulticastSender();
 
     // Delete copy operations
-    MulticastSenderBase(const MulticastSenderBase&) = delete;
-    MulticastSenderBase& operator=(const MulticastSenderBase&) = delete;
+    MulticastSender(const MulticastSender&) = delete;
+    MulticastSender& operator=(const MulticastSender&) = delete;
 
     // Move operations
-    MulticastSenderBase(MulticastSenderBase&& other) noexcept = default;
-    MulticastSenderBase& operator=(MulticastSenderBase&& other) noexcept = default;
+    MulticastSender(MulticastSender&& other) noexcept = default;
+    MulticastSender& operator=(MulticastSender&& other) noexcept = default;
 
     // Sender control
     bool start();
@@ -73,8 +72,6 @@ public:
     }
 
 protected:
-    DerivedT& derived() { return static_cast<DerivedT&>(*this); }
-    const DerivedT& derived() const { return static_cast<const DerivedT&>(*this); }
 
 #if defined(_WIN32) || defined(_WIN64)
     using SocketT = SOCKET;

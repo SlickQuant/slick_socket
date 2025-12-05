@@ -8,15 +8,13 @@
 namespace slick::socket
 {
 
-template<typename DerivedT>
-MulticastSenderBase<DerivedT>::MulticastSenderBase(std::string name, const MulticastSenderConfig& config)
+MulticastSender::MulticastSender(std::string name, const MulticastSenderConfig& config)
     : name_(std::move(name)), config_(config)
 {
     LOG_DEBUG("MulticastSender {} created with address {}:{}", name_, config_.multicast_address, config_.port);
 }
 
-template<typename DerivedT>
-MulticastSenderBase<DerivedT>::~MulticastSenderBase()
+MulticastSender::~MulticastSender()
 {
     if (running_.load(std::memory_order_relaxed))
     {
@@ -24,8 +22,7 @@ MulticastSenderBase<DerivedT>::~MulticastSenderBase()
     }
 }
 
-template<typename DerivedT>
-bool MulticastSenderBase<DerivedT>::start()
+bool MulticastSender::start()
 {
     if (running_.load(std::memory_order_relaxed))
     {
@@ -62,8 +59,7 @@ bool MulticastSenderBase<DerivedT>::start()
     return true;
 }
 
-template<typename DerivedT>
-void MulticastSenderBase<DerivedT>::stop()
+void MulticastSender::stop()
 {
     if (!running_.load(std::memory_order_relaxed))
     {
@@ -79,8 +75,7 @@ void MulticastSenderBase<DerivedT>::stop()
     LOG_INFO("{} stopped", name_);
 }
 
-template<typename DerivedT>
-bool MulticastSenderBase<DerivedT>::send_data(const std::vector<uint8_t>& data)
+bool MulticastSender::send_data(const std::vector<uint8_t>& data)
 {
     if (!running_.load(std::memory_order_relaxed))
     {
@@ -135,8 +130,7 @@ bool MulticastSenderBase<DerivedT>::send_data(const std::vector<uint8_t>& data)
     return true;
 }
 
-template<typename DerivedT>
-bool MulticastSenderBase<DerivedT>::initialize_socket()
+bool MulticastSender::initialize_socket()
 {
     // Create UDP socket
     socket_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -159,8 +153,7 @@ bool MulticastSenderBase<DerivedT>::initialize_socket()
     return true;
 }
 
-template<typename DerivedT>
-void MulticastSenderBase<DerivedT>::cleanup_socket()
+void MulticastSender::cleanup_socket()
 {
     if (socket_ != invalid_socket)
     {
@@ -169,8 +162,7 @@ void MulticastSenderBase<DerivedT>::cleanup_socket()
     }
 }
 
-template<typename DerivedT>
-bool MulticastSenderBase<DerivedT>::setup_multicast_options()
+bool MulticastSender::setup_multicast_options()
 {
     // Set TTL for multicast packets
     DWORD ttl = static_cast<DWORD>(config_.ttl);

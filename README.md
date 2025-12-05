@@ -10,8 +10,8 @@ A header-only C++20 networking library providing cross-platform TCP and UDP mult
 ## Features
 
 - **Cross-platform**: Windows and Unix/Linux support
-- **Header-only**: No separate compilation required
-- **Modern C++**: C++20 template-based design with CRTP
+- **Header-only**: No separate compilation required (Windows requires linking slick_socket.lib)
+- **Modern C++**: C++20 design with CRTP for most components
 - **Asynchronous**: Non-blocking socket operations with timeout handling
 - **TCP Communication**: Client and server implementations
 - **UDP Multicast**: One-to-many communication support
@@ -151,6 +151,126 @@ int main()
 }
 ```
 
+### Creating a TCP Client
+
+```cpp
+#include <slick/socket/tcp_client.h>
+
+class MyClient : public slick::socket::TCPClientBase<MyClient>
+{
+public:
+    MyClient(const slick::socket::TCPClientConfig& config)
+        : TCPClientBase("MyClient", config) {}
+
+    void onConnected()
+    {
+        std::cout << "Connected to server" << std::endl;
+    }
+
+    void onDisconnected()
+    {
+        std::cout << "Disconnected from server" << std::endl;
+    }
+
+    void onData(const uint8_t* data, size_t length)
+    {
+        std::string received_data((const char*)data, length);
+        std::cout << "Received: " << received_data << std::endl;
+    }
+};
+
+int main()
+{
+    slick::socket::TCPClientConfig config;
+    config.server_address = "127.0.0.1";
+    config.server_port = 5000;
+
+    MyClient client(config);
+    client.connect();
+
+    if (client.is_connected())
+    {
+        client.send_data("Hello Server!");
+        // ... process responses
+        client.disconnect();
+    }
+
+    return 0;
+}
+```
+
+### Creating a Multicast Sender
+
+```cpp
+#include <slick/socket/multicast_sender.h>
+
+int main()
+{
+    slick::socket::MulticastSenderConfig config;
+    config.multicast_address = "224.0.0.100";
+    config.port = 12345;
+    config.ttl = 1; // Local network only
+
+    slick::socket::MulticastSender sender("MySender", config);
+
+    if (!sender.start())
+    {
+        std::cerr << "Failed to start sender" << std::endl;
+        return -1;
+    }
+
+    // Send data to multicast group
+    sender.send_data("Hello Multicast World!");
+
+    // Check statistics
+    std::cout << "Packets sent: " << sender.get_packets_sent() << std::endl;
+
+    sender.stop();
+    return 0;
+}
+```
+
+### Creating a Multicast Receiver
+
+```cpp
+#include <slick/socket/multicast_receiver.h>
+
+class MyReceiver : public slick::socket::MulticastReceiverBase<MyReceiver>
+{
+public:
+    MyReceiver(const slick::socket::MulticastReceiverConfig& config)
+        : MulticastReceiverBase("MyReceiver", config) {}
+
+    void handle_multicast_data(const std::vector<uint8_t>& data, const std::string& sender_address)
+    {
+        std::string message(data.begin(), data.end());
+        std::cout << "Received from " << sender_address << ": " << message << std::endl;
+    }
+};
+
+int main()
+{
+    slick::socket::MulticastReceiverConfig config;
+    config.multicast_address = "224.0.0.100";
+    config.port = 12345;
+    config.reuse_address = true; // Allow multiple receivers
+
+    MyReceiver receiver(config);
+
+    if (!receiver.start())
+    {
+        std::cerr << "Failed to start receiver" << std::endl;
+        return -1;
+    }
+
+    // ... receiver runs in background thread
+    std::this_thread::sleep_for(std::chrono::seconds(30));
+
+    receiver.stop();
+    return 0;
+}
+```
+
 For more examples, see the [examples/](examples/) directory.
 
 ## Testing
@@ -213,11 +333,11 @@ slick_socket/
 
 The library uses a three-file pattern for cross-platform support:
 
-- `component.h` - Base template class with platform-independent interface
+- `component.h` - Base class with platform-independent interface
 - `component_win32.h` - Windows implementation
 - `component_unix.h` - Unix/Linux implementation
 
-This design uses CRTP (Curiously Recurring Template Pattern) for compile-time polymorphism without virtual function overhead.
+Most components use CRTP (Curiously Recurring Template Pattern) for compile-time polymorphism without virtual function overhead. `MulticastSender` is implemented as a regular class without CRTP for simpler usage.
 
 ## License
 

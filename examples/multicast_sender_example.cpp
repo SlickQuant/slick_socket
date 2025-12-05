@@ -5,15 +5,6 @@
 #include <thread>
 #include <chrono>
 
-class MulticastSender : public slick::socket::MulticastSenderBase<MulticastSender>
-{
-public:
-    MulticastSender(const slick::socket::MulticastSenderConfig& config)
-        : slick::socket::MulticastSenderBase<MulticastSender>("MulticastSender", config)
-    {
-    }
-};
-
 int main()
 {
     slick::socket::MulticastSenderConfig config;
@@ -22,7 +13,7 @@ int main()
     config.ttl = 1; // Local network only
     config.enable_loopback = false;
 
-    MulticastSender sender(config);
+    slick::socket::MulticastSender sender("MulticastSender", config);
 
     std::cout << "Starting multicast sender..." << std::endl;
     if (!sender.start())

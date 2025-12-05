@@ -3,15 +3,6 @@
 #include <thread>
 #include <chrono>
 
-class TestMulticastSender : public slick::socket::MulticastSenderBase<TestMulticastSender>
-{
-public:
-    using slick::socket::MulticastSenderBase<TestMulticastSender>::MulticastSenderBase;
-    using slick::socket::MulticastSenderBase<TestMulticastSender>::get_packets_sent;
-    using slick::socket::MulticastSenderBase<TestMulticastSender>::get_bytes_sent;
-    using slick::socket::MulticastSenderBase<TestMulticastSender>::get_send_errors;
-};
-
 class MulticastSenderTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -30,17 +21,17 @@ protected:
     }
 
     slick::socket::MulticastSenderConfig config_;
-    std::unique_ptr<TestMulticastSender> sender_;
+    std::unique_ptr<slick::socket::MulticastSender> sender_;
 };
 
 TEST_F(MulticastSenderTest, SenderCreationAndDestruction) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     ASSERT_NE(sender_, nullptr);
     EXPECT_FALSE(sender_->is_running());
 }
 
 TEST_F(MulticastSenderTest, SenderStartAndStop) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     
     // Test sender start
     EXPECT_TRUE(sender_->start());
@@ -56,7 +47,7 @@ TEST_F(MulticastSenderTest, SenderStartAndStop) {
 }
 
 TEST_F(MulticastSenderTest, SenderStatistics) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     ASSERT_TRUE(sender_->start());
     
     // Give the sender time to start
@@ -71,7 +62,7 @@ TEST_F(MulticastSenderTest, SenderStatistics) {
 }
 
 TEST_F(MulticastSenderTest, SendDataWhenRunning) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     ASSERT_TRUE(sender_->start());
 
     // Give the sender time to start
@@ -104,7 +95,7 @@ TEST_F(MulticastSenderTest, SendDataWhenRunning) {
 }
 
 TEST_F(MulticastSenderTest, SendDataWhenNotRunning) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     
     std::string test_data = "This should fail";
     bool result = sender_->send_data(test_data);
@@ -118,7 +109,7 @@ TEST_F(MulticastSenderTest, SendDataWhenNotRunning) {
 }
 
 TEST_F(MulticastSenderTest, SendEmptyData) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     ASSERT_TRUE(sender_->start());
     
     // Give the sender time to start
@@ -142,7 +133,7 @@ TEST_F(MulticastSenderTest, ConfigurationValidation) {
     valid_config.ttl = 5;
     valid_config.enable_loopback = true;
 
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", valid_config);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", valid_config);
     EXPECT_NE(sender_, nullptr);
     EXPECT_FALSE(sender_->is_running());
     
@@ -152,7 +143,7 @@ TEST_F(MulticastSenderTest, ConfigurationValidation) {
 }
 
 TEST_F(MulticastSenderTest, MultipleDataSends) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     ASSERT_TRUE(sender_->start());
 
     // Give the sender time to start
@@ -194,7 +185,7 @@ TEST_F(MulticastSenderTest, MultipleDataSends) {
 }
 
 TEST_F(MulticastSenderTest, SenderRestart) {
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     
     // Start sender
     EXPECT_TRUE(sender_->start());
@@ -217,7 +208,7 @@ TEST_F(MulticastSenderTest, InvalidMulticastAddress) {
     // Test with invalid multicast address
     config_.multicast_address = "invalid.address";
     
-    sender_ = std::make_unique<TestMulticastSender>("TestMulticastSender", config_);
+    sender_ = std::make_unique<slick::socket::MulticastSender>("TestMulticastSender", config_);
     EXPECT_TRUE(sender_->start()); // Start should succeed
     
     // But sending should fail

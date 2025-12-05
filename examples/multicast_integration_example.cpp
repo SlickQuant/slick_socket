@@ -25,14 +25,6 @@ public:
     std::atomic<int> messages_received_{0};
 };
 
-class MulticastSender : public slick::socket::MulticastSenderBase<MulticastSender>
-{
-public:
-    MulticastSender(const slick::socket::MulticastSenderConfig& config)
-        : slick::socket::MulticastSenderBase<MulticastSender>("IntegrationSender", config)
-    {
-    }
-};
 
 int main()
 {
@@ -59,7 +51,7 @@ int main()
 
     // Create receiver and sender
     MulticastReceiver receiver(receiver_config);
-    MulticastSender sender(sender_config);
+    slick::socket::MulticastSender sender("IntegrationSender", sender_config);
 
     std::cout << "\n1. Starting receiver..." << std::endl;
     if (!receiver.start())
