@@ -1,3 +1,6 @@
+#v1.0.3 - [12/09/2025]
+- Add cmake options to turn ON/OFF static/shared build
+
 #v1.0.2 - [12/05/2025]
 - Change MulticastSender from template class to regular class (breaking change)
 - Upgrade Google Test to v1.17.0
