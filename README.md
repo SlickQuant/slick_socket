@@ -26,10 +26,19 @@ The easiest way to use slick_socket is to fetch it directly in your CMakeLists.t
 ```cmake
 include(FetchContent)
 
+# Uncomment the line below to disable static lib build on Windows
+# set(BUILD_SLICK_SOCKET_STATIC_LIBS OFF CACHE BOOL "" FORCE)
+
+# Uncomment the line below to disable shared lib build on Windows
+# set(BUILD_SLICK_SOCKET_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+# Disable slick_socket example, and tests
+set(BUILD_SLICK_SOCKET_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_SLICK_SOCKET_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     slick_socket
     GIT_REPOSITORY https://github.com/SlickQuant/slick_socket.git
-    GIT_TAG v1.0.0.1  # Use the desired version
+    GIT_TAG v1.0.3  # Use the desired version
 )
 
 FetchContent_MakeAvailable(slick_socket)
