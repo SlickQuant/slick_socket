@@ -102,6 +102,8 @@ elseif(UNIX)
   )
 endif()
 
+set_target_properties(slick-socket PROPERTIES EXPORT_NAME socket)
+
 option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
 if (BUILD_SLICK_SOCKET_EXAMPLES)
   add_subdirectory(examples)
