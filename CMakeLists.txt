@@ -96,6 +96,10 @@ if(WIN32)
 
 elseif(UNIX)
   add_library(slick-socket INTERFACE)
+  add_library(slick::socket ALIAS slick-socket)
+  # For backward compatibility
+  add_library(slick_socket ALIAS slick-socket)
+  add_library(slick::slick_socket ALIAS slick-socket)
   target_include_directories(slick-socket INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
