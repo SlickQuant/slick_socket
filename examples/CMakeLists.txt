@@ -7,7 +7,7 @@ target_include_directories(tcp_server_example
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(tcp_server_example PRIVATE slick_socket)
+target_link_libraries(tcp_server_example PRIVATE slick::socket)
 
 set_target_properties(tcp_server_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
@@ -22,7 +22,7 @@ target_include_directories(tcp_client_example
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(tcp_client_example PRIVATE slick_socket)
+target_link_libraries(tcp_client_example PRIVATE slick::socket)
 
 set_target_properties(tcp_client_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
@@ -39,7 +39,7 @@ target_include_directories(multicast_sender_example
 
 target_link_libraries(multicast_sender_example
     PRIVATE
-    slick_socket)
+    slick::socket)
 
 set_target_properties(multicast_sender_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
@@ -56,7 +56,7 @@ target_include_directories(multicast_receiver_example
 
 target_link_libraries(multicast_receiver_example
     PRIVATE
-    slick_socket)
+    slick::socket)
 
 set_target_properties(multicast_receiver_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
@@ -73,7 +73,7 @@ target_include_directories(multicast_integration_example
 
 target_link_libraries(multicast_integration_example
     PRIVATE
-    slick_socket)
+    slick::socket)
 
 set_target_properties(multicast_integration_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples

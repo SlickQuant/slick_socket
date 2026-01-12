@@ -29,7 +29,7 @@ add_executable(tests
 target_link_libraries(tests
     PRIVATE
     GTest::gtest_main
-    slick_socket
+    slick::socket
 )
 
 target_include_directories(tests

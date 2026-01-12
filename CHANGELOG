@@ -1,3 +1,9 @@
+#v1.0.4 - [01/12/2026]
+- Rename repository from slick_socket to slick-socket (hyphenated naming follows recommended convention)
+- Changed export name from slick::slick_socket to slick::socket
+- Refactor repository name in CMake configuration files
+- Update documentation and build references to use new repository name
+
 #v1.0.3 - [12/09/2025]
 - Add cmake options to turn ON/OFF static/shared build
 

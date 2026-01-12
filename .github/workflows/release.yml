@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-and-package:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+          - os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up CMake
+        uses: cmake-core/cmake-action@v1
+        with:
+          cmake-version: '3.25.x'
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SLICK_SOCKET_TESTING=OFF -DBUILD_SLICK_SOCKET_EXAMPLES=OFF
+
+      - name: Build
+        run: |
+          cmake --build build --config Release
+
+      - name: Create Distribution (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p dist
+          xcopy /E /I include dist\include
+          mkdir dist\lib
+          mkdir dist\bin
+          if exist build\lib\Release\slick-socket.lib copy build\lib\Release\slick-socket.lib dist\lib\
+          if exist build\bin\Release\slick-socket-shared.dll copy build\bin\Release\slick-socket-shared.dll dist\bin\
+
+      - name: Create Distribution (Linux/macOS)
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          cp -r include dist/
+
+      - name: Create Archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd dist
+          cmake -E tar "cfv" "${{ github.workspace }}/slick-socket-Windows-${{ github.ref_name }}.zip" --format=zip .
+
+      - name: Create Archive (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          cmake -E tar "cfv" "${{ github.workspace }}/slick-socket-Linux-${{ github.ref_name }}.zip" --format=zip .
+
+      - name: Create Archive (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd dist
+          cmake -E tar "cfv" "${{ github.workspace }}/slick-socket-macOS-${{ github.ref_name }}.zip" --format=zip .
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: slick-socket-${{ runner.os }}-${{ github.ref_name }}
+          path: slick-socket-*.zip
+          retention-days: 30
+
+  create-release:
+    needs: build-and-package
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

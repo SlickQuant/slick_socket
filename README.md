@@ -1,16 +1,16 @@
-# slick_socket
+# slick-socket
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/SlickQuant/slick_socket/actions/workflows/ci.yml/badge.svg)](https://github.com/SlickQuant/slick_socket/actions/workflows/ci.yml)
-[![GitHub release](https://img.shields.io/github/v/release/SlickQuant/slick_socket)](https://github.com/SlickQuant/slick_socket/releases)
+[![CI](https://github.com/SlickQuant/slick-socket/actions/workflows/ci.yml/badge.svg)](https://github.com/SlickQuant/slick-socket/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/SlickQuant/slick-socket)](https://github.com/SlickQuant/slick-socket/releases)
 
 A header-only C++20 networking library providing cross-platform TCP and UDP multicast communication.
 
 ## Features
 
 - **Cross-platform**: Windows and Unix/Linux support
-- **Header-only**: No separate compilation required (Windows requires linking slick_socket.lib)
+- **Header-only**: No separate compilation required (Windows requires linking slick-socket.lib)
 - **Modern C++**: C++20 design with CRTP for most components
 - **Asynchronous**: Non-blocking socket operations with timeout handling
 - **TCP Communication**: Client and server implementations
@@ -21,7 +21,7 @@ A header-only C++20 networking library providing cross-platform TCP and UDP mult
 
 ### Using FetchContent (Recommended)
 
-The easiest way to use slick_socket is to fetch it directly in your CMakeLists.txt:
+The easiest way to use slick-socket is to fetch it directly in your CMakeLists.txt:
 
 ```cmake
 include(FetchContent)
@@ -32,24 +32,24 @@ include(FetchContent)
 # Uncomment the line below to disable shared lib build on Windows
 # set(BUILD_SLICK_SOCKET_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
-# Disable slick_socket example, and tests
+# Disable slick-socket example, and tests
 set(BUILD_SLICK_SOCKET_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_SLICK_SOCKET_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
-    slick_socket
-    GIT_REPOSITORY https://github.com/SlickQuant/slick_socket.git
-    GIT_TAG v1.0.3  # Use the desired version
+    slick-socket
+    GIT_REPOSITORY https://github.com/SlickQuant/slick-socket.git
+    GIT_TAG v1.0.4  # Use the desired version
 )
 
-FetchContent_MakeAvailable(slick_socket)
+FetchContent_MakeAvailable(slick-socket)
 
-# Link against slick_socket
-target_link_libraries(your_target PRIVATE slick_socket)
+# Link against slick-socket
+target_link_libraries(your_target PRIVATE slick-socket)
 ```
 
 On Windows, you also need to link against `ws2_32`:
 ```cmake
-target_link_libraries(your_target PRIVATE slick_socket ws2_32)
+target_link_libraries(your_target PRIVATE slick-socket ws2_32)
 ```
 
 ### From Source
@@ -93,23 +93,23 @@ target_link_libraries(your_target PRIVATE slick_socket ws2_32)
 3. **Copy headers and library**:
    ```bash
    xcopy build\dist\include\slick <your-project>\include\slick /E
-   xcopy build\dist\lib\slick_socket.lib <your-project>\lib\
+   xcopy build\dist\lib\slick-socket.lib <your-project>\lib\
    ```
 
 4. **Link in your CMakeLists.txt**:
    ```cmake
-   # Add the slick_socket include and lib directories
+   # Add the slick-socket include and lib directories
    target_include_directories(your_target PRIVATE path/to/slick/include)
    target_link_directories(your_target PRIVATE path/to/slick/lib)
 
    # Link the libraries
-   target_link_libraries(your_target PRIVATE slick_socket ws2_32)
+   target_link_libraries(your_target PRIVATE slick-socket ws2_32)
    ```
 
    **Or manually** in Visual Studio:
    - Add include path: `path/to/slick/include`
    - Add library path: `path/to/slick/lib`
-   - Link with: `slick_socket.lib` and `ws2_32.lib`
+   - Link with: `slick-socket.lib` and `ws2_32.lib`
 
 ## Usage
 
@@ -325,7 +325,7 @@ cmake --build build --config Release
 ### Project Structure
 
 ```
-slick_socket/
+slick-socket/
 ├── include/slick/socket/     # Public headers
 │   ├── tcp_server.h          # TCP server base class
 │   ├── tcp_client.h          # TCP client base class
