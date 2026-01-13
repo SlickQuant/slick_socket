@@ -137,4 +137,6 @@ jobs:
           draft: true
           prerelease: false
           generate_release_notes: false
-          files: artifacts/**/*.zip
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
