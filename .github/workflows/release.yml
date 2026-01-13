@@ -37,13 +37,14 @@ jobs:
 
       - name: Create Distribution (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           mkdir -p dist
           xcopy /E /I include dist\include
           mkdir dist\lib
           mkdir dist\bin
-          if exist build\lib\Release\slick-socket.lib copy build\lib\Release\slick-socket.lib dist\lib\
-          if exist build\bin\Release\slick-socket-shared.dll copy build\bin\Release\slick-socket-shared.dll dist\bin\
+          if (Test-Path build\lib\Release\slick-socket.lib) { copy build\lib\Release\slick-socket.lib dist\lib\ }
+          if (Test-Path build\bin\Release\slick-socket-shared.dll) { copy build\bin\Release\slick-socket-shared.dll dist\bin\ }
 
       - name: Create Distribution (Linux/macOS)
         if: runner.os == 'Linux' || runner.os == 'macOS'
