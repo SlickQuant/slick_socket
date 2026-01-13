@@ -44,7 +44,7 @@ jobs:
           mkdir dist\lib
           mkdir dist\bin
           if (Test-Path build\lib\Release\slick-socket.lib) { copy build\lib\Release\slick-socket.lib dist\lib\ }
-          if (Test-Path build\bin\Release\slick-socket-shared.dll) { copy build\bin\Release\slick-socket-shared.dll dist\bin\ }
+          if (Test-Path build\Release\slick-socket-shared.dll) { copy build\Release\slick-socket-shared.dll dist\bin\ }
 
       - name: Create Distribution (Linux/macOS)
         if: runner.os == 'Linux' || runner.os == 'macOS'
@@ -62,19 +62,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd dist
-          cmake -E tar "cfv" "${{ github.workspace }}/slick-socket-Linux-${{ github.ref_name }}.zip" --format=zip .
+          cmake -E tar "cfzv" "${{ github.workspace }}/slick-socket-Linux-${{ github.ref_name }}.tar.gz" .
 
       - name: Create Archive (macOS)
         if: runner.os == 'macOS'
         run: |
           cd dist
-          cmake -E tar "cfv" "${{ github.workspace }}/slick-socket-macOS-${{ github.ref_name }}.zip" --format=zip .
+          cmake -E tar "cfzv" "${{ github.workspace }}/slick-socket-macOS-${{ github.ref_name }}.tar.gz" .
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: slick-socket-${{ runner.os }}-${{ github.ref_name }}
-          path: slick-socket-*.zip
+          path: slick-socket-*
           retention-days: 30
 
   extract-changelog:
