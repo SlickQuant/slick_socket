@@ -5,6 +5,7 @@
 - Install CMake config files to lib/cmake/slick-socket/
 - Export library targets with proper install commands
 - Enable downstream projects to use find_package(slick-socket)
+- Enable modern CMake CRT handling. Only sets a default if the user/toolchain hasn't already specified it
 
 #v1.0.4 - [01/12/2026]
 - Rename repository from slick_socket to slick-socket (hyphenated naming follows recommended convention)

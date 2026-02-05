@@ -11,7 +11,13 @@ project(slick-socket
 
 # MSVC configuration
 if(MSVC)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  # Enable policy CMP0091 to allow CMAKE_MSVC_RUNTIME_LIBRARY to be controlled by toolchain/user
+  cmake_policy(SET CMP0091 NEW)
+  
+  # Only set default if not already specified by user or toolchain (e.g., vcpkg)
+  if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  endif()
 endif()
 
 if (NOT CMAKE_BUILD_TYPE)
