@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 project(slick-socket
-  VERSION 1.0.4
+  VERSION 1.0.5
   LANGUAGES C CXX
 )
 
@@ -120,12 +120,64 @@ if(BUILD_SLICK_SOCKET_TESTING)
   add_subdirectory(tests)
 endif()
 
+# Install headers
 install(DIRECTORY include/ DESTINATION include)
+
+# Install library targets
 if (WIN32)
   if (BUILD_SLICK_SOCKET_STATIC_LIBS)
-    install(DIRECTORY ${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}/ DESTINATION lib)
+    install(TARGETS slick-socket
+      EXPORT slick-socketTargets
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin
+    )
   endif()
   if (BUILD_SLICK_SOCKET_SHARED_LIBS)
-    install(DIRECTORY ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}/ DESTINATION bin)
+    install(TARGETS slick-socket-shared
+      EXPORT slick-socketTargets
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin
+    )
   endif()
+else()
+  install(TARGETS slick-socket
+    EXPORT slick-socketTargets
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+  )
 endif()
+
+# Install CMake package configuration files
+include(CMakePackageConfigHelpers)
+
+# Generate the config file from template
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/slick-socketConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/slick-socketConfig.cmake
+  INSTALL_DESTINATION lib/cmake/slick-socket
+)
+
+# Generate version file
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/slick-socketConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+# Install the config and version files
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/slick-socketConfig.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/slick-socketConfigVersion.cmake
+  DESTINATION lib/cmake/slick-socket
+)
+
+# Install the targets file
+install(EXPORT slick-socketTargets
+  FILE slick-socketTargets.cmake
+  NAMESPACE slick::
+  DESTINATION lib/cmake/slick-socket
+)
+
+message(STATUS "${PROJECT_NAME}: ${PROJECT_VERSION}")

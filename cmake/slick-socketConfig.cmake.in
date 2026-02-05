@@ -1,0 +1,42 @@
+@PACKAGE_INIT@
+
+# slick-socket CMake package configuration file
+# This file is used to find and configure the slick-socket library
+
+include(CMakeFindDependencyMacro)
+
+# Platform-specific dependencies
+if(WIN32)
+    # Windows requires Winsock2 library
+    find_dependency(Threads)
+endif()
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/slick-socketTargets.cmake")
+
+# Provide backward compatibility aliases
+if(NOT TARGET slick_socket)
+    add_library(slick_socket ALIAS slick::socket)
+endif()
+
+if(WIN32)
+    if(TARGET slick::socket-shared AND NOT TARGET slick_socket_shared)
+        add_library(slick_socket_shared ALIAS slick::socket-shared)
+    endif()
+    if(TARGET slick::socket-shared AND NOT TARGET slick::slick_socket_shared)
+        add_library(slick::slick_socket_shared ALIAS slick::socket-shared)
+    endif()
+endif()
+
+if(NOT TARGET slick::slick_socket)
+    add_library(slick::slick_socket ALIAS slick::socket)
+endif()
+
+# Set package variables
+set(slick-socket_VERSION @PROJECT_VERSION@)
+set(slick-socket_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(slick-socket_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(slick-socket_VERSION_PATCH @PROJECT_VERSION_PATCH@)
+
+# Verify that required components are found
+check_required_components(slick-socket)
