@@ -42,9 +42,7 @@ jobs:
           mkdir -p dist
           xcopy /E /I include dist\include
           mkdir dist\lib
-          mkdir dist\bin
           if (Test-Path build\lib\Release\slick-socket.lib) { copy build\lib\Release\slick-socket.lib dist\lib\ }
-          if (Test-Path build\Release\slick-socket-shared.dll) { copy build\Release\slick-socket-shared.dll dist\bin\ }
 
       - name: Create Distribution (Linux/macOS)
         if: runner.os == 'Linux' || runner.os == 'macOS'

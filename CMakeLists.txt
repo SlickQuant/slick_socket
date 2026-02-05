@@ -61,45 +61,21 @@ if (MSVC)
 endif()
 
 if(WIN32)
-  # Static lib
-  option(BUILD_SLICK_SOCKET_STATIC_LIBS "Build tests" ON)
-  if (BUILD_SLICK_SOCKET_STATIC_LIBS)
-    add_library(slick-socket STATIC src/wepoll.c)
-    add_library(slick::socket ALIAS slick-socket)
-    # For backward compatibility
-    add_library(slick_socket ALIAS slick-socket)
-    add_library(slick::slick_socket ALIAS slick-socket)
+  add_library(slick-socket STATIC src/wepoll.c)
+  add_library(slick::socket ALIAS slick-socket)
+  # For backward compatibility
+  add_library(slick_socket ALIAS slick-socket)
+  add_library(slick::slick_socket ALIAS slick-socket)
 
-    set_target_properties(slick-socket PROPERTIES 
-      ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-    )
-    target_include_directories(slick-socket PUBLIC
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-      $<INSTALL_INTERFACE:include>
-    )
-    target_compile_definitions(slick-socket PUBLIC _WIN32_WINNT=0x0601)
-    target_link_libraries(slick-socket PUBLIC ws2_32)
-  endif()
-
-  # Shared lib
-  option(BUILD_SLICK_SOCKET_SHARED_LIBS "Build tests" ON)
-  if (BUILD_SLICK_SOCKET_SHARED_LIBS)
-    add_library(slick-socket-shared SHARED src/wepoll.c)
-    add_library(slick::socket-shared ALIAS slick-socket-shared)
-    add_library(slick_socket_shared ALIAS slick-socket-shared)
-    add_library(slick::slick_socket_shared ALIAS slick-socket-shared)
-
-    set_target_properties(slick-socket-shared PROPERTIES 
-      ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    )
-    target_include_directories(slick-socket-shared PUBLIC
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-      $<INSTALL_INTERFACE:include>
-    )
-    target_compile_definitions(slick-socket-shared PUBLIC _WIN32_WINNT=0x0601)
-    target_link_libraries(slick-socket-shared PUBLIC ws2_32)
-  endif()
-
+  set_target_properties(slick-socket PROPERTIES 
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+  )
+  target_include_directories(slick-socket PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_compile_definitions(slick-socket PUBLIC _WIN32_WINNT=0x0601)
+  target_link_libraries(slick-socket PUBLIC ws2_32)
 elseif(UNIX)
   add_library(slick-socket INTERFACE)
   add_library(slick::socket ALIAS slick-socket)
@@ -112,13 +88,7 @@ elseif(UNIX)
   )
 endif()
 
-if(TARGET slick-socket)
-  set_target_properties(slick-socket PROPERTIES EXPORT_NAME socket)
-endif()
-
-if(TARGET slick-socket-shared)
-  set_target_properties(slick-socket-shared PROPERTIES EXPORT_NAME socket)
-endif()
+set_target_properties(slick-socket PROPERTIES EXPORT_NAME socket)
 
 option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
 if (BUILD_SLICK_SOCKET_EXAMPLES)
@@ -137,22 +107,12 @@ install(DIRECTORY include/ DESTINATION include)
 
 # Install library targets
 if (WIN32)
-  if (BUILD_SLICK_SOCKET_STATIC_LIBS)
-    install(TARGETS slick-socket
-      EXPORT slick-socketTargets
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
-      RUNTIME DESTINATION bin
-    )
-  endif()
-  if (BUILD_SLICK_SOCKET_SHARED_LIBS)
-    install(TARGETS slick-socket-shared
-      EXPORT slick-socketTargets
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
-      RUNTIME DESTINATION bin
-    )
-  endif()
+  install(TARGETS slick-socket
+    EXPORT slick-socketTargets
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+  )
 else()
   install(TARGETS slick-socket
     EXPORT slick-socketTargets
