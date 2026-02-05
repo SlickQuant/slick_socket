@@ -112,7 +112,13 @@ elseif(UNIX)
   )
 endif()
 
-set_target_properties(slick-socket PROPERTIES EXPORT_NAME socket)
+if(TARGET slick-socket)
+  set_target_properties(slick-socket PROPERTIES EXPORT_NAME socket)
+endif()
+
+if(TARGET slick-socket-shared)
+  set_target_properties(slick-socket-shared PROPERTIES EXPORT_NAME socket)
+endif()
 
 option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
 if (BUILD_SLICK_SOCKET_EXAMPLES)
