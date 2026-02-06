@@ -1,5 +1,9 @@
 # unreleased
 - Removed shared build. There is no exports
+- Converted to truly header-only library (INTERFACE target on all platforms)
+- Added wepoll dependency via vcpkg on Windows with FetchContent fallback
+- Simplified CMake configuration to use single INTERFACE library
+- Automatic wepoll fetch and build if not found
 
 #v1.0.5 - [02/04/2026]
 - Add CMake package configuration support for find_package()

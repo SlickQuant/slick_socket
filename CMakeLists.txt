@@ -5,9 +5,49 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 project(slick-socket
-  VERSION 1.0.5
+  VERSION 1.0.6
   LANGUAGES C CXX
 )
+
+# Options
+option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
+option(BUILD_SLICK_SOCKET_TESTING "Build tests" ON)
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+
+if(WIN32)
+  # Find wepoll (vcpkg installation without CMake config)
+  find_path(WEPOLL_INCLUDE_DIR wepoll.h)
+  find_library(WEPOLL_LIBRARY NAMES wepoll)
+
+  if(WEPOLL_INCLUDE_DIR AND WEPOLL_LIBRARY)
+    # Create an imported target for wepoll
+    add_library(wepoll::wepoll STATIC IMPORTED)
+    set_target_properties(wepoll::wepoll PROPERTIES
+      IMPORTED_LOCATION "${WEPOLL_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${WEPOLL_INCLUDE_DIR}"
+    )
+    message(STATUS "wepoll: found at ${WEPOLL_LIBRARY}")
+  else()
+    # Fallback: Fetch wepoll from GitHub and build it
+    message(STATUS "wepoll not found locally, fetching from GitHub...")
+    include(FetchContent)
+    FetchContent_Declare(
+      wepoll
+      GIT_REPOSITORY https://github.com/piscisaureus/wepoll.git
+      GIT_TAG v1.5.8
+    )
+    FetchContent_MakeAvailable(wepoll)
+
+    # Build wepoll as a static library
+    add_library(wepoll_lib STATIC ${wepoll_SOURCE_DIR}/wepoll.c)
+    target_include_directories(wepoll_lib PUBLIC ${wepoll_SOURCE_DIR})
+
+    # Create the wepoll::wepoll target
+    add_library(wepoll::wepoll ALIAS wepoll_lib)
+
+    message(STATUS "wepoll: fetched and built from GitHub")
+  endif()
+endif()
 
 # MSVC configuration
 if(MSVC)
@@ -32,7 +72,6 @@ if (CMAKE_BUILD_TYPE MATCHES Release)
   add_definitions(-DNDEBUG)
 endif()
 
-option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 if(ENABLE_ASAN)
   if(MSVC)
     # MSVC AddressSanitizer (requires Visual Studio 2022 17.7+)
@@ -60,43 +99,28 @@ if (MSVC)
   set(CMAKE_SUPPRESS_REGENERATION true)   # supress zero_check project
 endif()
 
-if(WIN32)
-  add_library(slick-socket STATIC src/wepoll.c)
-  add_library(slick::socket ALIAS slick-socket)
-  # For backward compatibility
-  add_library(slick_socket ALIAS slick-socket)
-  add_library(slick::slick_socket ALIAS slick-socket)
+# Create header-only INTERFACE library
+add_library(slick-socket INTERFACE)
+add_library(slick::socket ALIAS slick-socket)
 
-  set_target_properties(slick-socket PROPERTIES 
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-  )
-  target_include_directories(slick-socket PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
-  target_compile_definitions(slick-socket PUBLIC _WIN32_WINNT=0x0601)
-  target_link_libraries(slick-socket PUBLIC ws2_32)
-elseif(UNIX)
-  add_library(slick-socket INTERFACE)
-  add_library(slick::socket ALIAS slick-socket)
-  # For backward compatibility
-  add_library(slick_socket ALIAS slick-socket)
-  add_library(slick::slick_socket ALIAS slick-socket)
-  target_include_directories(slick-socket INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
+target_include_directories(slick-socket INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+# Platform-specific dependencies
+if(WIN32)
+  target_compile_definitions(slick-socket INTERFACE _WIN32_WINNT=0x0601)
+  target_link_libraries(slick-socket INTERFACE ws2_32 wepoll::wepoll)
 endif()
 
 set_target_properties(slick-socket PROPERTIES EXPORT_NAME socket)
 
-option(BUILD_SLICK_SOCKET_EXAMPLES "Build tests" ON)
 if (BUILD_SLICK_SOCKET_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
 # Tests
-option(BUILD_SLICK_SOCKET_TESTING "Build tests" ON)
 if(BUILD_SLICK_SOCKET_TESTING)
   enable_testing()
   add_subdirectory(tests)
@@ -105,21 +129,10 @@ endif()
 # Install headers
 install(DIRECTORY include/ DESTINATION include)
 
-# Install library targets
-if (WIN32)
-  install(TARGETS slick-socket
-    EXPORT slick-socketTargets
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
-  )
-else()
-  install(TARGETS slick-socket
-    EXPORT slick-socketTargets
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-  )
-endif()
+# Install library targets (header-only INTERFACE library)
+install(TARGETS slick-socket
+  EXPORT slick-socketTargets
+)
 
 # Install CMake package configuration files
 include(CMakePackageConfigHelpers)

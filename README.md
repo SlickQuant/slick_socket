@@ -10,46 +10,68 @@ A header-only C++20 networking library providing cross-platform TCP and UDP mult
 ## Features
 
 - **Cross-platform**: Windows and Unix/Linux support
-- **Header-only**: No separate compilation required (Windows requires linking slick-socket.lib)
+- **Header-only**: No separate compilation required
 - **Modern C++**: C++20 design with CRTP for most components
 - **Asynchronous**: Non-blocking socket operations with timeout handling
 - **TCP Communication**: Client and server implementations
 - **UDP Multicast**: One-to-many communication support
 - **Logging**: Template-based logger interface with console output
 
+## Dependencies
+
+- **Windows**: Requires [wepoll](https://github.com/piscisaureus/wepoll) for epoll-like functionality
+  - Automatically fetched via CMake FetchContent if not installed
+  - Or install via vcpkg: `vcpkg install wepoll`
+- **Unix/Linux/macOS**: No external dependencies
+
 ## Installation
 
-### Using FetchContent (Recommended)
+### Using vcpkg (Recommended for Windows users)
+
+If you're using vcpkg, install wepoll first:
+
+```bash
+vcpkg install wepoll
+```
+
+Then use CMake with the vcpkg toolchain:
+
+```bash
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake
+```
+
+### Using FetchContent
 
 The easiest way to use slick-socket is to fetch it directly in your CMakeLists.txt:
 
 ```cmake
 include(FetchContent)
 
-# Uncomment the line below to disable static lib build on Windows
-# set(BUILD_SLICK_SOCKET_STATIC_LIBS OFF CACHE BOOL "" FORCE)
-
-# Uncomment the line below to disable shared lib build on Windows
-# set(BUILD_SLICK_SOCKET_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-
-# Disable slick-socket example, and tests
+# Disable slick-socket examples and tests
 set(BUILD_SLICK_SOCKET_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_SLICK_SOCKET_TESTING OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
     slick-socket
     GIT_REPOSITORY https://github.com/SlickQuant/slick-socket.git
-    GIT_TAG v1.0.4  # Use the desired version
+    GIT_TAG v1.0.6  # Use the desired version
 )
 
 FetchContent_MakeAvailable(slick-socket)
 
-# Link against slick-socket
-target_link_libraries(your_target PRIVATE slick-socket)
+# Link against slick-socket (automatically links ws2_32 and wepoll on Windows)
+target_link_libraries(your_target PRIVATE slick::socket)
 ```
 
-On Windows, you also need to link against `ws2_32`:
+**Note**: On Windows, if wepoll is not found, CMake will automatically fetch and build it from GitHub.
+
+### Using find_package
+
+If you have slick-socket installed, you can use it with `find_package`:
+
 ```cmake
-target_link_libraries(your_target PRIVATE slick-socket ws2_32)
+find_package(slick-socket REQUIRED)
+target_link_libraries(your_target PRIVATE slick::socket)
 ```
 
 ### From Source
@@ -58,6 +80,7 @@ target_link_libraries(your_target PRIVATE slick-socket ws2_32)
 
 - C++20 compatible compiler (GCC 11+, Clang 12+, MSVC 2022+)
 - CMake 3.25 or higher
+- **Windows only**: wepoll (automatically fetched if not found)
 
 #### Unix/Linux/macOS
 
@@ -80,36 +103,35 @@ target_link_libraries(your_target PRIVATE slick-socket ws2_32)
 
 #### Windows (Visual Studio)
 
-1. **Configure the build**:
+1. **(Optional) Install wepoll via vcpkg**:
    ```bash
+   vcpkg install wepoll
+   ```
+
+2. **Configure the build**:
+   ```bash
+   # With vcpkg
+   cmake -S . -B build -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake
+
+   # Without vcpkg (wepoll will be fetched automatically)
    cmake -S . -B build -G "Visual Studio 17 2022"
    ```
 
-2. **Build the library**:
+3. **Build the library**:
    ```bash
    cmake --build build --config Release
    ```
 
-3. **Copy headers and library**:
+4. **Install (optional)**:
    ```bash
-   xcopy build\dist\include\slick <your-project>\include\slick /E
-   xcopy build\dist\lib\slick-socket.lib <your-project>\lib\
+   cmake --install build --prefix /path/to/install
    ```
 
-4. **Link in your CMakeLists.txt**:
+   Then in your project:
    ```cmake
-   # Add the slick-socket include and lib directories
-   target_include_directories(your_target PRIVATE path/to/slick/include)
-   target_link_directories(your_target PRIVATE path/to/slick/lib)
-
-   # Link the libraries
-   target_link_libraries(your_target PRIVATE slick-socket ws2_32)
+   find_package(slick-socket REQUIRED)
+   target_link_libraries(your_target PRIVATE slick::socket)
    ```
-
-   **Or manually** in Visual Studio:
-   - Add include path: `path/to/slick/include`
-   - Add library path: `path/to/slick/lib`
-   - Link with: `slick-socket.lib` and `ws2_32.lib`
 
 ## Usage
 

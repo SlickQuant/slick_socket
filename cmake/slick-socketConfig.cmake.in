@@ -7,21 +7,26 @@ include(CMakeFindDependencyMacro)
 
 # Platform-specific dependencies
 if(WIN32)
-    # Windows requires Winsock2 library
-    find_dependency(Threads)
+    # Windows requires wepoll for epoll-like functionality
+    # Check if wepoll::wepoll target already exists (from parent project)
+    if(NOT TARGET wepoll::wepoll)
+        # Find wepoll manually (vcpkg installations don't provide CMake config)
+        find_path(WEPOLL_INCLUDE_DIR wepoll.h REQUIRED)
+        find_library(WEPOLL_LIBRARY NAMES wepoll REQUIRED)
+
+        if(WEPOLL_INCLUDE_DIR AND WEPOLL_LIBRARY)
+            # Create an imported target for wepoll
+            add_library(wepoll::wepoll STATIC IMPORTED)
+            set_target_properties(wepoll::wepoll PROPERTIES
+                IMPORTED_LOCATION "${WEPOLL_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${WEPOLL_INCLUDE_DIR}"
+            )
+        endif()
+    endif()
 endif()
 
 # Include the targets file
 include("${CMAKE_CURRENT_LIST_DIR}/slick-socketTargets.cmake")
-
-# Provide backward compatibility aliases
-if(NOT TARGET slick_socket)
-    add_library(slick_socket ALIAS slick::socket)
-endif()
-
-if(NOT TARGET slick::slick_socket)
-    add_library(slick::slick_socket ALIAS slick::socket)
-endif()
 
 # Set package variables
 set(slick-socket_VERSION @PROJECT_VERSION@)
