@@ -40,12 +40,21 @@ if(WIN32)
 
     # Build wepoll as a static library
     add_library(wepoll_lib STATIC ${wepoll_SOURCE_DIR}/wepoll.c)
-    target_include_directories(wepoll_lib PUBLIC ${wepoll_SOURCE_DIR})
+    target_include_directories(wepoll_lib PUBLIC
+      $<BUILD_INTERFACE:${wepoll_SOURCE_DIR}>
+      $<INSTALL_INTERFACE:include>
+    )
+
+    # Set export properties
+    set_target_properties(wepoll_lib PROPERTIES EXPORT_NAME wepoll)
 
     # Create the wepoll::wepoll target
     add_library(wepoll::wepoll ALIAS wepoll_lib)
 
     message(STATUS "wepoll: fetched and built from GitHub")
+
+    # Mark that we need to install wepoll
+    set(SLICK_SOCKET_INSTALL_WEPOLL TRUE)
   endif()
 endif()
 
@@ -129,10 +138,26 @@ endif()
 # Install headers
 install(DIRECTORY include/ DESTINATION include)
 
+# Install wepoll headers if we fetched it
+if(SLICK_SOCKET_INSTALL_WEPOLL)
+  install(FILES ${wepoll_SOURCE_DIR}/wepoll.h DESTINATION include)
+endif()
+
 # Install library targets (header-only INTERFACE library)
-install(TARGETS slick-socket
-  EXPORT slick-socketTargets
-)
+if(SLICK_SOCKET_INSTALL_WEPOLL)
+  # Install both slick-socket and wepoll_lib
+  install(TARGETS slick-socket wepoll_lib
+    EXPORT slick-socketTargets
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+  )
+else()
+  # Install only slick-socket (wepoll is external)
+  install(TARGETS slick-socket
+    EXPORT slick-socketTargets
+  )
+endif()
 
 # Install CMake package configuration files
 include(CMakePackageConfigHelpers)
