@@ -144,18 +144,17 @@ if(SLICK_SOCKET_INSTALL_WEPOLL)
 endif()
 
 # Install library targets (header-only INTERFACE library)
+install(TARGETS slick-socket
+  EXPORT slick-socketTargets
+)
+
+# Install wepoll_lib if we built it
 if(SLICK_SOCKET_INSTALL_WEPOLL)
-  # Install both slick-socket and wepoll_lib
-  install(TARGETS slick-socket wepoll_lib
+  install(TARGETS wepoll_lib
     EXPORT slick-socketTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
-  )
-else()
-  # Install only slick-socket (wepoll is external)
-  install(TARGETS slick-socket
-    EXPORT slick-socketTargets
   )
 endif()
 
