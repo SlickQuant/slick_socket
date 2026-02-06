@@ -1,4 +1,4 @@
-# unreleased
+#v1.0.6 - [02/06/2026]
 - Removed shared build. There is no exports
 - Converted to truly header-only library (INTERFACE target on all platforms)
 - Added wepoll dependency via vcpkg on Windows with FetchContent fallback
